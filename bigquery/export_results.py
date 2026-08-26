@@ -11,11 +11,22 @@ Writes to `${OUT_DIR}` (default `out/`):
 
 `visualize.py` reads these files, not BigQuery, so charts can be redrawn
 without touching the warehouse.
+
+`export_month()` is what `run_pipeline.py --month` calls after a one-month
+run. The BigQuery working dataset holds only that month's tables (each
+pipeline step is a `CREATE OR REPLACE TABLE`), so it merges the fresh month
+into the existing local files instead of overwriting them: `monthly_summary`
+and `pool_summary` are keyed by month, `flag_a_sensitivity` sums across
+months per grid cell, and `flagged_txs_sample` keeps the largest 5,000 seen
+across all runs so far. The BigQuery dataset can then be dropped with
+`delete_dataset.py` before the next month runs.
 """
 
 import argparse
 import json
 import os
+
+import pandas as pd
 
 import bqio
 import config
@@ -140,6 +151,68 @@ def write_summary(out_dir, monthly, sensitivity_grid, pools):
     with open(path, "w") as fh:
         json.dump(head, fh, indent=2)
     print(f"  {path}")
+
+
+def _load(out_dir, name):
+    path = os.path.join(out_dir, f"{name}.csv")
+    return pd.read_csv(path) if os.path.exists(path) else None
+
+
+def _merge_by_key(existing, fresh, keys):
+    """Replace rows sharing a key (this month, re-run) and keep the rest."""
+    if existing is None or existing.empty:
+        return fresh.sort_values(keys).reset_index(drop=True)
+    fresh_keys = fresh.set_index(keys).index
+    kept = existing[~existing.set_index(keys).index.isin(fresh_keys)]
+    return (pd.concat([kept, fresh], ignore_index=True)
+            .sort_values(keys).reset_index(drop=True))
+
+
+def _merge_sensitivity(existing, fresh):
+    """Grid cells sum across disjoint months; the share is recomputed."""
+    keys = ["sensitivity", "full_weight"]
+    sum_cols = ["flagged_txs", "flagged_vbytes", "full_block_vbytes",
+                "lower_band_btc", "upper_band_btc"]
+    if existing is None or existing.empty:
+        combined = fresh[keys + sum_cols].copy()
+    else:
+        combined = (pd.concat([existing[keys + sum_cols], fresh[keys + sum_cols]])
+                    .groupby(keys, as_index=False)[sum_cols].sum())
+    combined["flagged_share"] = combined["flagged_vbytes"] / combined["full_block_vbytes"]
+    return combined.sort_values(keys).reset_index(drop=True)
+
+
+def _merge_top_k(existing, fresh, sort_col, k=5000):
+    combined = fresh if existing is None or existing.empty else pd.concat([existing, fresh])
+    return (combined.sort_values(sort_col, ascending=False)
+            .head(k).reset_index(drop=True))
+
+
+def export_month(out_dir):
+    """Fetch the current (single-month) tables and merge them into out_dir."""
+    os.makedirs(out_dir, exist_ok=True)
+    fresh = {name: bqio.client().query(bqio.render_string(sql)).result().to_dataframe()
+             for name, sql in TABLES.items()}
+
+    merged = {
+        "monthly_summary": _merge_by_key(
+            _load(out_dir, "monthly_summary"), fresh["monthly_summary"], ["block_month"]),
+        "pool_summary": _merge_by_key(
+            _load(out_dir, "pool_summary"), fresh["pool_summary"],
+            ["block_month", "pool_name"]),
+        "flag_a_sensitivity": _merge_sensitivity(
+            _load(out_dir, "flag_a_sensitivity"), fresh["flag_a_sensitivity"]),
+        "flagged_txs_sample": _merge_top_k(
+            _load(out_dir, "flagged_txs_sample"), fresh["flagged_txs_sample"],
+            "upper_band_sats"),
+    }
+    for name, df in merged.items():
+        path = os.path.join(out_dir, f"{name}.csv")
+        df.to_csv(path, index=False)
+        print(f"  {path}  {len(df)} rows")
+
+    write_summary(out_dir, merged["monthly_summary"],
+                  merged["flag_a_sensitivity"], merged["pool_summary"])
 
 
 def main():

@@ -1,9 +1,15 @@
 """Run the private-blockspace pipeline.
 
     python run_pipeline.py --dry-run          # what each step would scan
-    python run_pipeline.py --smoke 2023-04    # one month, end to end, ~$0.15
+    python run_pipeline.py --month 2023-04    # one month, end to end, ~$0.15
     python run_pipeline.py                    # the full window
     python run_pipeline.py --from 06_block_floor
+
+The source dataset is partitioned by month, and the pipeline aggregates by
+month, so a normal run covers exactly one month with `--month`. Each run
+writes its month into the local `out/` files and leaves the BigQuery working
+dataset in place; delete it with `delete_dataset.py` once the local files
+hold what you need.
 
 Step 01 is the only expensive step: it reads ~300 GB of the public dataset
 once and everything after it works on local tables. The run asks before
@@ -16,6 +22,7 @@ import sys
 import bqio
 import config
 import effective_fee
+import export_results
 
 # name, kind, what it does
 STEPS = [
@@ -138,8 +145,8 @@ def main():
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--dry-run", action="store_true",
                         help="report bytes per step and stop")
-    parser.add_argument("--smoke", metavar="YYYY-MM",
-                        help="run one month end to end, to validate cheaply")
+    parser.add_argument("--month", metavar="YYYY-MM",
+                        help="run one month end to end, then export it to out/")
     parser.add_argument("--from", dest="from_step", metavar="STEP",
                         help="start at this step")
     parser.add_argument("--only", metavar="STEP[,STEP]",
@@ -149,12 +156,9 @@ def main():
     parser.add_argument("--skip-checks", action="store_true")
     args = parser.parse_args()
 
-    if args.smoke:
-        start = f"{args.smoke}-01"
-        year, month = int(args.smoke[:4]), int(args.smoke[5:7])
-        end = f"{year + (month // 12)}-{month % 12 + 1:02d}-01"
-        config.set_window(start, end)
-        print(f"smoke run: {start} .. {end}")
+    if args.month:
+        config.set_month(args.month)
+        print(f"month run: {config.START_DATE} .. {config.END_DATE}")
 
     steps = select_steps(args)
     bqio.ensure_dataset()
@@ -182,6 +186,12 @@ def main():
     if not args.skip_checks:
         run_checks()
     headline()
+
+    if args.month:
+        print(f"\nexporting {args.month} to {config.OUT_DIR}/")
+        export_results.export_month(config.OUT_DIR)
+        print(f"\ndone. delete the BigQuery working dataset when ready:"
+              f"\n  python delete_dataset.py")
 
 
 if __name__ == "__main__":

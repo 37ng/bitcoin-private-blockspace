@@ -21,6 +21,11 @@ START_DATE = os.environ.get("START_DATE", "2023-01-01")
 # Open-ended by default: "now" is whatever the public dataset holds.
 END_DATE = os.environ.get("END_DATE", "2100-01-01")
 
+# The source dataset is partitioned by month, and the pipeline aggregates by
+# month. So a run should cover exactly one month: set MONTH (env var) or pass
+# `--month YYYY-MM` to `run_pipeline.py`.
+MONTH = os.environ.get("MONTH")
+
 
 def month_of(date_str: str) -> str:
     """First day of the month, matching the source partition key."""
@@ -28,11 +33,23 @@ def month_of(date_str: str) -> str:
 
 
 def set_window(start_date: str, end_date: str = None) -> None:
-    """Narrow the study window. Used by `run_pipeline.py --smoke`."""
+    """Narrow the study window to an explicit date range."""
     global START_DATE, END_DATE
     START_DATE = start_date
     if end_date:
         END_DATE = end_date
+
+
+def set_month(month_str: str) -> None:
+    """Narrow the study window to one calendar month, e.g. "2023-04"."""
+    year, month = int(month_str[:4]), int(month_str[5:7])
+    start = f"{year}-{month:02d}-01"
+    end = f"{year + (month // 12)}-{month % 12 + 1:02d}-01"
+    set_window(start, end)
+
+
+if MONTH:
+    set_month(MONTH)
 
 # --- Policy dates and standardness limits ---------------------------------
 # A transaction is "non-relayable" when a default-configured node of the day
