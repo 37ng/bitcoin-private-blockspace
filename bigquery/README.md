@@ -81,15 +81,31 @@ condition is what separates sustained demand from one busy minute.
 |---|---|---|
 | step 01, full window | ~300 GB | ~$1.85 |
 | every later step, full window | ~250 GB | ~$1.60 |
-| one smoke month, end to end | ~25 GB | ~$0.15 |
+| one month, end to end (`--month`) | ~25 GB | ~$0.15 |
 
 `tx_base` and `txs` are partitioned by month and clustered by block number;
-`blocks` and the summary tables are small enough to need neither. Storage for
-the full window is roughly 60 GB.
+`blocks` and the summary tables are small enough to need neither.
 
 Every run prints what each step scanned. `--dry-run` prints it without running
 anything, and the full run asks before the one expensive step unless `--yes`
 is given.
+
+## Running one month at a time
+
+The source dataset is partitioned by month and the pipeline aggregates by
+month, so the normal way to run this is one month per invocation:
+
+```bash
+python run_pipeline.py --month 2023-04
+python delete_dataset.py
+```
+
+`--month` runs the full step list for that month, then exports it into
+`out/` (merging into any earlier months already there — see
+`export_results.py`). The BigQuery working dataset itself is left in place
+so you can inspect it; once the local files hold what you need,
+`delete_dataset.py` drops it so storage does not grow across months. Local
+output stays on the order of megabytes per month.
 
 ## Tests
 
