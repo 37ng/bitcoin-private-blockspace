@@ -210,12 +210,12 @@ def schema():
 
 
 def load_to_bigquery(records, table="accelerations"):
-    """Replace `${dst}.accelerations`. About 30k rows, a few MB of storage."""
+    """Replace `${accel_dst}.accelerations`. About 30k rows, a few MB of storage."""
     from google.cloud import bigquery as bq
 
     import bqio
 
-    bqio.ensure_dataset()
+    bqio.ensure_dataset(config.ACCEL_DATASET)
     rows = [normalise(r) for r in records]
     # Send timestamps as ISO strings rather than unix seconds, so the column
     # type is obvious from the payload instead of implied by the loader.
@@ -225,7 +225,7 @@ def load_to_bigquery(records, table="accelerations"):
                 row[key] = time.strftime("%Y-%m-%d %H:%M:%S",
                                          time.gmtime(row[key]))
 
-    target = f"{config.dst()}.{table}"
+    target = f"{config.accel_dst()}.{table}"
     job = bqio.client().load_table_from_json(
         rows, target,
         job_config=bq.LoadJobConfig(schema=schema(),

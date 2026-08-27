@@ -4,11 +4,14 @@
 -- The API also carries `mined_by_pool_unique_id`, but that is mempool.space's
 -- pool id and it is null on some records; joining on block height through our
 -- own attribution keeps one definition of "which pool" across the project.
+-- The join reaches across datasets -- `a` from `${accel_dst}`, `b` from
+-- `${dst}` -- and the result is written back into `${accel_dst}` with the
+-- rest of the acceleration tables.
 --
 -- `pools_offered` counts how many partner pools the request went to. It is a
 -- coverage measure: an acceleration only works if a partner pool wins the
 -- block, so a low count means the payment was a bet, not a purchase.
-CREATE OR REPLACE TABLE `${dst}.acceleration_by_pool` AS
+CREATE OR REPLACE TABLE `${accel_dst}.acceleration_by_pool` AS
 SELECT
   b.pool_name,
   COUNT(*)                                  AS n_accelerations,
@@ -20,7 +23,7 @@ SELECT
   AVG(ARRAY_LENGTH(a.pools))                AS avg_pools_offered,
   MIN(a.block_height)                       AS first_block,
   MAX(a.block_height)                       AS last_block
-FROM `${dst}.accelerations` AS a
+FROM `${accel_dst}.accelerations` AS a
 JOIN `${dst}.blocks` AS b
   ON b.block_number = a.block_height
 WHERE NOT a.canceled

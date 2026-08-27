@@ -13,6 +13,12 @@ PROJECT = os.environ.get("BQ_PROJECT", "bitcoin-private-blockspace")
 DATASET = os.environ.get("BQ_DATASET", "blockspace")
 LOCATION = os.environ.get("BQ_LOCATION", "US")
 
+# The accelerations history comes from the mempool.space API, not the
+# `crypto_bitcoin` public dataset, and it is slow to (re)crawl. It lives in
+# its own dataset so `delete_dataset.py` -- which drops `DATASET` between
+# months -- can never take it out with the disposable pipeline tables.
+ACCEL_DATASET = os.environ.get("BQ_ACCEL_DATASET", "accelerations")
+
 SOURCE = "bigquery-public-data.crypto_bitcoin"
 
 # --- Study window ---------------------------------------------------------
@@ -132,10 +138,16 @@ def dst() -> str:
     return f"{PROJECT}.{DATASET}"
 
 
+def accel_dst() -> str:
+    """Fully qualified accelerations dataset."""
+    return f"{PROJECT}.{ACCEL_DATASET}"
+
+
 def template_vars() -> dict:
     """Values injected into every SQL step."""
     return {
         "dst": dst(),
+        "accel_dst": accel_dst(),
         "src": SOURCE,
         "start_date": START_DATE,
         "start_month": month_of(START_DATE),

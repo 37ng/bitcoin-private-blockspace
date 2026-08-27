@@ -28,11 +28,15 @@ import config
 SQL_FILES = sorted(os.path.basename(p)
                    for p in glob.glob(os.path.join(bqio.SQL_DIR, "*.sql")))
 
+# The acceleration steps live in `sql/accelerations/`, in their own dataset,
+# outside the 01-08 pipeline chain -- covered by their own tests below rather
+# than folded into SQL_FILES's numbered-step checks.
+ACCEL_SQL_FILES = sorted(
+    "accelerations/" + os.path.basename(p)
+    for p in glob.glob(os.path.join(bqio.SQL_DIR, "accelerations", "*.sql")))
+
 # Steps that read or write the summary tables the band formula feeds.
 BAND_STEPS = ("07_revenue_bands.sql", "07c_pool_summary.sql")
-
-# Queries that sit outside the pipeline chain, so they carry no step number.
-UNNUMBERED = ("20_acceleration_summary.sql", "21_acceleration_by_pool.sql")
 
 DRY_RUN_ENABLED = os.environ.get("BQ_DRY_RUN") == "1"
 
@@ -43,14 +47,29 @@ requires_bigquery = pytest.mark.skipif(
 
 def test_sql_dir_is_not_empty():
     """A glob that silently matches nothing would make every test below pass."""
-    assert len(SQL_FILES) >= 14
+    assert len(SQL_FILES) >= 13
+    assert len(ACCEL_SQL_FILES) >= 2
 
 
-@pytest.mark.parametrize("name", SQL_FILES)
+@pytest.mark.parametrize("name", SQL_FILES + ACCEL_SQL_FILES)
 def test_every_step_renders(name):
     """No step carries a `${placeholder}` that `config` no longer defines."""
     sql = bqio.render(name)
     assert "${" not in sql
+
+
+@pytest.mark.parametrize("name", ACCEL_SQL_FILES)
+def test_accel_steps_write_the_accel_dataset(name):
+    """Accelerations tables live in `${accel_dst}`, never in the pipeline's `${dst}`.
+
+    They are fetched from mempool.space, not `crypto_bitcoin`, and
+    `delete_dataset.py` drops `${dst}` between months -- a table that landed
+    there by mistake would vanish with the rest of the disposable pipeline
+    tables.
+    """
+    sql = bqio.render(name)
+    assert f"CREATE OR REPLACE TABLE `{config.accel_dst()}." in sql
+    assert f"{config.dst()}.acceleration" not in sql
 
 
 @pytest.mark.parametrize("name", SQL_FILES)
@@ -59,14 +78,11 @@ def test_filename_matches_its_step_label(name):
 
     The two drifted apart once: the files were numbered 01-13 in run order
     while the comments numbered them by stage, so `10_revenue_bands.sql`
-    opened with "Step 07". Files outside the pipeline chain carry no label
-    and are exempt.
+    opened with "Step 07".
     """
     first_line = source(name).splitlines()[0]
     match = re.match(r"-- Step ([0-9a-z]+):", first_line)
-    if match is None:
-        assert name in UNNUMBERED, f"{name} has no step label and is not exempt"
-        return
+    assert match is not None, f"{name} has no step label"
     assert name.split("_")[0] == match.group(1)
 
 
@@ -124,7 +140,7 @@ def test_sensitivity_grid_uses_the_same_pair_of_tests():
 
 
 @requires_bigquery
-@pytest.mark.parametrize("name", SQL_FILES)
+@pytest.mark.parametrize("name", SQL_FILES + ACCEL_SQL_FILES)
 def test_step_dry_runs(name):
     """BigQuery parses and plans the step. Free: a dry run scans nothing."""
     from google.api_core.exceptions import NotFound
