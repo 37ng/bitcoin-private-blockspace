@@ -48,8 +48,6 @@ fetch from `blocks` table, this table has single purpose of associating block to
 - lower band: private revenue is (floor rate - effective rate) * vB
 - high band: (p50 effective fee in block) * vB
 
-## visualize
-
 ## tests
 
 ### union find tests
