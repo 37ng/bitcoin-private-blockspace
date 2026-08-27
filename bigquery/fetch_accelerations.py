@@ -41,6 +41,14 @@ records towards higher page numbers -- never towards lower ones, where a
 downward walk has already been. The worst a mid-walk insertion can do is show
 one record twice, and the `(txid, added)` key absorbs that.
 
+A deletion shifts the other way, and only a deletion *during* a walk can cost
+anything: a record removed above the page already read pulls the one below it
+up into a page that has been passed. That window is the length of the walk --
+seconds for a top-up, two hours for `--full`, which makes the top-up the safer
+run as well as the cheaper one. A deletion *between* runs costs nothing at
+all, because the watermark is a timestamp and selects the same records whether
+or not the one it came from still exists.
+
 A page number is not a bookmark. Pages are a window onto that shifting list:
 half a page of new records moves every boundary by half a page, so page 5
 today is page 8 next week. Only `added` is stable enough to resume from.
@@ -255,6 +263,19 @@ def existing_keys():
             for r in bqio.rows(f"SELECT txid, added FROM `{accel_table()}`")}
 
 
+def unloaded(records, have):
+    """The records not already in BigQuery, keyed on `(txid, added)`.
+
+    The watermark decides only where to stop *reading*. What to *keep* is
+    decided here, by key. Keeping the two apart is what makes an `added` equal
+    to the watermark safe: such a record is read (its page counts as old) and
+    then kept, because its key is not in `have`. A rule that filtered on
+    `added > watermark` instead would lose it, and two accelerations can share
+    a second.
+    """
+    return [r for r in records if (r["txid"], r.get("added")) not in have]
+
+
 def fetch_new(sleep, page_length, watermark, overlap):
     """Walk from page 1 and stop once the walk is safely past the watermark.
 
@@ -358,10 +379,8 @@ def load_to_bigquery(records, table="accelerations", append=False):
 
     bqio.ensure_dataset(config.ACCEL_DATASET)
     if append:
-        have = existing_keys()
         seen = len(records)
-        records = [r for r in records
-                   if (r["txid"], r.get("added")) not in have]
+        records = unloaded(records, existing_keys())
         print(f"{seen - len(records)} of {seen} records were already loaded")
         if not records:
             print("nothing to append")

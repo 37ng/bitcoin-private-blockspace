@@ -152,10 +152,18 @@ Three properties make the partial walk safe, and all three are tested in
 The load is `WRITE_APPEND` of what is missing, so a short or interrupted
 top-up can never shrink the table. Only `--full` replaces it.
 
-The one thing this does not cover is deletion upstream: if a record were
-removed, everything below it would shift up by one and a watermark walk would
-skip exactly one record. `--overlap` narrows that window but does not close
-it. An occasional `--full` is the only real check.
+Deletion upstream is the one shift the walk cannot see, and only a deletion
+*during* a walk costs anything: a record removed above the page already read
+pulls the one below it up into a page that has been passed. The exposure is
+the length of the walk — seconds for a top-up, two hours for `--full` — so the
+top-up is the safer run as well as the cheaper one, and `--overlap` does not
+help either way, since it extends where the walk stops rather than re-reading
+where it has been.
+
+A deletion *between* runs costs nothing. The watermark is a timestamp, so it
+selects the same records whether or not the one it came from still exists;
+the record simply stays in BigQuery after upstream drops it. Nothing is
+skipped.
 
 `run_accelerations.py`'s steps live in `sql/accelerations/`, apart from the
 numbered `01`-`08` pipeline chain in `sql/`.

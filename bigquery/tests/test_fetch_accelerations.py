@@ -92,3 +92,33 @@ def test_a_record_returned_twice_collapses():
     same = record("04fdd997", 1712571182)
     keys = {(r["txid"], r["added"]) for r in (copy, same)}
     assert len(keys) == 1
+
+
+# --- what the watermark does and does not decide ------------------------
+
+def test_the_watermark_stops_the_read_but_never_filters_the_keep():
+    """A record whose `added` equals the watermark is still loaded.
+
+    Two accelerations can share a second. Its page counts as old and stops the
+    walk, but the record is kept, because keeping is decided by key. A rule
+    that filtered on `added > watermark` would lose it silently.
+    """
+    watermark = 100
+    page = [record("anchor", 100), record("same-second", 100)]
+    assert fa.page_is_old(page, watermark)          # the walk stops here
+    have = {("anchor", 100)}                        # ...but this is still new
+    assert [r["txid"] for r in fa.unloaded(page, have)] == ["same-second"]
+
+
+def test_a_deletion_between_runs_skips_nothing():
+    """The case the watermark rules out.
+
+    Upstream drops the record the watermark came from. The walk still reads
+    from page 1, and every record newer than the watermark is still above the
+    hole, so nothing moves into a page already passed.
+    """
+    watermark = 100
+    have = {("anchor", 100), ("old", 90)}
+    upstream_after_deletion = [record("new", 130), record("old", 90)]
+    assert not fa.page_is_old(upstream_after_deletion, watermark)
+    assert [r["txid"] for r in fa.unloaded(upstream_after_deletion, have)] == ["new"]
