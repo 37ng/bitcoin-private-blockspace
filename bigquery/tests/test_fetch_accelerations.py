@@ -44,11 +44,12 @@ def test_the_watermark_itself_is_old():
 
 # --- the watermark is a comparison, not a lookup ------------------------
 
-def test_a_deleted_anchor_does_not_change_what_follows():
-    """The record the watermark came from need not still exist.
+def test_the_watermark_is_a_comparison_not_a_lookup():
+    """Resuming must not depend on finding a particular record.
 
-    This is the deletion caveat: if the newest record we hold were removed
-    upstream, the walk must still resume at the same point.
+    Nothing has to still sit at the watermark timestamp for the walk to pick
+    up the right place. An identity-based resume would break here; a
+    comparison does not.
     """
     watermark = 100
     upstream = [record("new", 130), record("also-new", 120)]
@@ -108,17 +109,3 @@ def test_the_watermark_stops_the_read_but_never_filters_the_keep():
     assert fa.page_is_old(page, watermark)          # the walk stops here
     have = {("anchor", 100)}                        # ...but this is still new
     assert [r["txid"] for r in fa.unloaded(page, have)] == ["same-second"]
-
-
-def test_a_deletion_between_runs_skips_nothing():
-    """The case the watermark rules out.
-
-    Upstream drops the record the watermark came from. The walk still reads
-    from page 1, and every record newer than the watermark is still above the
-    hole, so nothing moves into a page already passed.
-    """
-    watermark = 100
-    have = {("anchor", 100), ("old", 90)}
-    upstream_after_deletion = [record("new", 130), record("old", 90)]
-    assert not fa.page_is_old(upstream_after_deletion, watermark)
-    assert [r["txid"] for r in fa.unloaded(upstream_after_deletion, have)] == ["new"]

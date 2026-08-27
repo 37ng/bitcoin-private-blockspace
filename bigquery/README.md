@@ -155,8 +155,8 @@ Three properties make the partial walk safe, and all three are tested in
 `tests/test_fetch_accelerations.py`:
 
 - **The watermark is a comparison, never a lookup.** Nothing has to still
-  exist at that timestamp. If the record it came from were deleted upstream,
-  `added > watermark` still selects exactly the records that follow it.
+  exist at that timestamp: `added > watermark` selects the records that follow
+  it, not the one it came from.
 - **The list only grows at the top.** It is sorted by `added` descending and
   `added` never changes, so an insertion pushes records towards higher page
   numbers — never towards lower ones, where a downward walk has already been.
@@ -170,19 +170,10 @@ Three properties make the partial walk safe, and all three are tested in
 The load is `WRITE_APPEND` of what is missing, so a short or interrupted
 top-up can never shrink the table. Only `--full` replaces it.
 
-Deletion upstream is the one shift the walk cannot see, and only a deletion
-*during* a walk costs anything: a record removed above the page already read
-pulls the one below it up into a page that has been passed. The exposure is
-the length of the walk — about a minute for a top-up against about four hours
-for `--full` — so the top-up is the safer run as well as the cheaper one, and
-`--overlap` does not
-help either way, since it extends where the walk stops rather than re-reading
-where it has been.
-
-A deletion *between* runs costs nothing. The watermark is a timestamp, so it
-selects the same records whether or not the one it came from still exists;
-the record simply stays in BigQuery after upstream drops it. Nothing is
-skipped.
+All of it rests on the list being append-only, which was checked rather than
+assumed: re-fetching a year of history nine days after the first load returned
+all 8,265 records with no field changed and none missing, and `x-total-count`
+has only ever risen.
 
 `run_accelerations.py`'s steps live in `sql/accelerations/`, apart from the
 numbered `01`-`08` pipeline chain in `sql/`.

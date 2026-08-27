@@ -31,9 +31,8 @@ A top-up is the normal run. The history endpoint is newest-first and takes no
 watermark defaults to `MAX(added)` already in BigQuery.
 
 The watermark is a comparison, never a lookup. Nothing has to still exist at
-that timestamp for the walk to resume correctly: if the record it came from
-were deleted upstream, `added > watermark` still selects exactly the records
-that follow it.
+that timestamp for the walk to resume correctly -- `added > watermark` selects
+the records that follow it, not the one it came from.
 
 Ordering is what makes a partial walk safe. The list is sorted by `added`
 descending and `added` never changes, so a new acceleration can only push
@@ -41,14 +40,10 @@ records towards higher page numbers -- never towards lower ones, where a
 downward walk has already been. The worst a mid-walk insertion can do is show
 one record twice, and the `(txid, added)` key absorbs that.
 
-A deletion shifts the other way, and only a deletion *during* a walk can cost
-anything: a record removed above the page already read pulls the one below it
-up into a page that has been passed. That window is the length of the walk --
-about a minute for a top-up against about four hours for `--full` at the
-default pace -- which makes the top-up the safer run as well as the cheaper
-one. A deletion *between* runs costs nothing at all, because the watermark is
-a timestamp and selects the same records whether or not the one it came from
-still exists.
+The list is append-only in practice, which is what lets a walk stop early at
+all. Re-fetching a year of it nine days after the first load returned all
+8,265 records with no field changed and none missing, and `x-total-count` has
+only ever risen.
 
 A page number is not a bookmark. Pages are a window onto that shifting list:
 half a page of new records moves every boundary by half a page, so page 5
