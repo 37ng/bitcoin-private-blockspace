@@ -129,9 +129,27 @@ A top-up is the normal run. The history endpoint is newest-first and takes no
 rate of about 25 accelerations a day, a daily top-up reads one page and a
 month-old one reads about fifteen; a `--full` re-crawl reads about 610.
 
-That difference is worth the flag. The API pushes back hard and the client
-backs off, so the measured rate is about **5 pages a minute**, not the one a
-second the sleep implies: a full re-crawl takes roughly two hours.
+That difference is what the flag buys. Requests go out at one every 20
+seconds — three a minute, `--sleep` to change it — so pages, not seconds, set
+the wall time:
+
+| gap since last fetch | pages read | wall time |
+|---|---|---|
+| nothing new | 2 | ~1.5 min (measured) |
+| a day | 3 | ~2 min |
+| a week | 6 | ~3 min |
+| a month | 17 | ~7 min |
+| `--full` | ~610 | ~4 h |
+
+Every walk reads `--overlap` pages beyond the new ones, and the stats call
+adds one request, so a top-up with nothing to fetch still costs three
+requests.
+
+The pace is deliberately slower than the API forces. It publishes no rate
+limit, and at one request a second it pushed back constantly enough that the
+backoff, not the sleep, set the real rate — about 5 pages a minute either way.
+Asking slowly costs a top-up nothing, because a top-up reads a page or two
+whatever the pace.
 
 Three properties make the partial walk safe, and all three are tested in
 `tests/test_fetch_accelerations.py`:
@@ -155,8 +173,9 @@ top-up can never shrink the table. Only `--full` replaces it.
 Deletion upstream is the one shift the walk cannot see, and only a deletion
 *during* a walk costs anything: a record removed above the page already read
 pulls the one below it up into a page that has been passed. The exposure is
-the length of the walk — seconds for a top-up, two hours for `--full` — so the
-top-up is the safer run as well as the cheaper one, and `--overlap` does not
+the length of the walk — about a minute for a top-up against about four hours
+for `--full` — so the top-up is the safer run as well as the cheaper one, and
+`--overlap` does not
 help either way, since it extends where the walk stops rather than re-reading
 where it has been.
 

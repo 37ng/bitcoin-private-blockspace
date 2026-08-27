@@ -44,10 +44,11 @@ one record twice, and the `(txid, added)` key absorbs that.
 A deletion shifts the other way, and only a deletion *during* a walk can cost
 anything: a record removed above the page already read pulls the one below it
 up into a page that has been passed. That window is the length of the walk --
-seconds for a top-up, two hours for `--full`, which makes the top-up the safer
-run as well as the cheaper one. A deletion *between* runs costs nothing at
-all, because the watermark is a timestamp and selects the same records whether
-or not the one it came from still exists.
+about a minute for a top-up against about four hours for `--full` at the
+default pace -- which makes the top-up the safer run as well as the cheaper
+one. A deletion *between* runs costs nothing at all, because the watermark is
+a timestamp and selects the same records whether or not the one it came from
+still exists.
 
 A page number is not a bookmark. Pages are a window onto that shifting list:
 half a page of new records moves every boundary by half a page, so page 5
@@ -77,6 +78,12 @@ STATS_API = "https://mempool.space/api/v1/services/accelerator/accelerations/sta
 # but returns no more rows.
 MAX_PAGE_LENGTH = 50
 
+# Seconds between requests: 3 a minute. The API publishes no rate limit, so
+# the pace is a choice rather than a measurement, and at 1s it pushed back
+# constantly -- the backoff, not the sleep, ended up setting the real rate.
+# Asking slowly costs a top-up nothing: it reads a page or two either way.
+DEFAULT_SLEEP = 20.0
+
 HEADERS = {"User-Agent": "bitcoin-private-blockspace/1.0 (research)"}
 
 SATS = 100_000_000
@@ -88,7 +95,7 @@ def cache_dir():
     return path
 
 
-def get_json(url, params=None, sleep=1.0, attempts=8):
+def get_json(url, params=None, sleep=DEFAULT_SLEEP, attempts=8):
     """One GET with polite backoff.
 
     The public API publishes no rate-limit headers, so the client sets its own
@@ -501,8 +508,9 @@ def main():
     parser = argparse.ArgumentParser(
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--sleep", type=float, default=1.0,
-                        help="seconds between requests (default 1.0)")
+    parser.add_argument("--sleep", type=float, default=DEFAULT_SLEEP,
+                        help=f"seconds between requests "
+                             f"(default {DEFAULT_SLEEP:.0f}, about 3 a minute)")
     parser.add_argument("--page-length", type=int, default=MAX_PAGE_LENGTH)
     parser.add_argument("--max-pages", type=int, default=0,
                         help="stop early, for a smoke test")
