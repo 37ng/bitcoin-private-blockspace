@@ -117,9 +117,45 @@ history is slow to (re)fetch and worth keeping, so `delete_dataset.py` — which
 only ever touches `BQ_DATASET` — cannot take it out between months.
 
 ```bash
-python fetch_accelerations.py   # crawl mempool.space, load accelerations.accelerations
-python run_accelerations.py     # build the summary tables from it
+python fetch_accelerations.py          # top up: read only what is new
+python fetch_accelerations.py --full   # re-crawl the whole history
+python run_accelerations.py            # build the summary tables from it
 ```
+
+A top-up is the normal run. The history endpoint is newest-first and takes no
+`since` parameter, so the walk starts at page 1 and stops once it has read
+`--overlap` consecutive pages lying at or before the watermark — by default
+`MAX(added)` already in BigQuery, or `--since` to override it. At the recent
+rate of about 25 accelerations a day, a daily top-up reads one page and a
+month-old one reads about fifteen; a `--full` re-crawl reads about 610.
+
+That difference is worth the flag. The API pushes back hard and the client
+backs off, so the measured rate is about **5 pages a minute**, not the one a
+second the sleep implies: a full re-crawl takes roughly two hours.
+
+Three properties make the partial walk safe, and all three are tested in
+`tests/test_fetch_accelerations.py`:
+
+- **The watermark is a comparison, never a lookup.** Nothing has to still
+  exist at that timestamp. If the record it came from were deleted upstream,
+  `added > watermark` still selects exactly the records that follow it.
+- **The list only grows at the top.** It is sorted by `added` descending and
+  `added` never changes, so an insertion pushes records towards higher page
+  numbers — never towards lower ones, where a downward walk has already been.
+  A page number is therefore not a bookmark: half a page of new records moves
+  every boundary by half a page.
+- **The key is `(txid, added)`, not `txid`.** One transaction can carry more
+  than one acceleration request — a retry after a failure — and both are real.
+  Because `added` never changes, the same key also collapses a record the API
+  returned twice.
+
+The load is `WRITE_APPEND` of what is missing, so a short or interrupted
+top-up can never shrink the table. Only `--full` replaces it.
+
+The one thing this does not cover is deletion upstream: if a record were
+removed, everything below it would shift up by one and a watermark walk would
+skip exactly one record. `--overlap` narrows that window but does not close
+it. An occasional `--full` is the only real check.
 
 `run_accelerations.py`'s steps live in `sql/accelerations/`, apart from the
 numbered `01`-`08` pipeline chain in `sql/`.
