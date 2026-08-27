@@ -34,9 +34,10 @@ SELECT
   t.flag_a_30,
   t.flag_a_50,
   t.flag_a_70,
-  GREATEST(b.floor_fee_rate - t.effective_fee_rate, 0) * t.virtual_size
-    AS lower_band_sats,
-  b.median_fee_rate * t.virtual_size AS upper_band_sats
+  -- Both expressions come from `config.LOWER_BAND_SATS` / `UPPER_BAND_SATS`,
+  -- so step 07c computes the same thing without retyping it.
+  ${lower_band_sats} AS lower_band_sats,
+  ${upper_band_sats} AS upper_band_sats
 FROM `${dst}.txs` AS t
 JOIN `${dst}.blocks` AS b USING (block_number)
 WHERE t.flag_a_70   -- the widest flag; narrower ones are subsets

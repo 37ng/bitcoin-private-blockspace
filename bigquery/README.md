@@ -104,6 +104,23 @@ disjoint chains that must not merge, one child funding two parents, and a
 parent confirmed in an earlier block that must be ignored. Every expected fee
 rate in `test_effective_fee.py` is computed by hand.
 
+`test_sql_steps.py` covers the SQL. Its rendering tests are offline too: they
+check that every `${placeholder}` still resolves, and that the two steps
+sharing a formula refer to it rather than retyping it. They read the raw file,
+not the rendered SQL, because a retyped copy renders identically to the
+shared one.
+
+Its dry-run tests ask BigQuery to parse and plan each step:
+
+```bash
+BQ_DRY_RUN=1 uv run python -m pytest tests/test_sql_steps.py -q
+```
+
+A dry run scans nothing and is not billed, but it does need credentials, and
+it needs the tables an earlier step builds. A step whose input is missing is
+skipped; only SQL that BigQuery rejects is a failure. Without the variable
+these tests skip, so `pytest tests/` stays free and offline.
+
 ## Validation
 
 `sanity_check.py` prints each pool's share of blocks per month. Compare it

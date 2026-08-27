@@ -5,10 +5,9 @@
 -- `sanity_check.py`: if a pool's block share does not match public hashrate
 -- data, its row here is meaningless.
 --
--- `full_block_vbytes` must use the same test as step 07b and step 08: full
--- AND a floor exists. A full block without a floor can hold no flagged
--- transaction, so counting it in the denominator only pushes every pool's
--- share down.
+-- The denominator is `config.FULL_AND_PRICED`, the same test step 07b uses.
+-- A full block without a floor can hold no flagged transaction, so counting
+-- it here would only push every pool's share down.
 CREATE OR REPLACE TABLE `${dst}.pool_summary`
 OPTIONS (description = "Flagged space and value by pool, per month and overall.")
 AS
@@ -22,12 +21,9 @@ WITH per_pool AS (
     SUM(IF(t.flag_a_50, t.virtual_size, 0)) AS flagged_vbytes_50,
     SUM(IF(t.flag_a_30, t.virtual_size, 0)) AS flagged_vbytes_30,
     SUM(IF(t.flag_a_70, t.virtual_size, 0)) AS flagged_vbytes_70,
-    SUM(IF(t.flag_a_50,
-           GREATEST(b.floor_fee_rate - t.effective_fee_rate, 0) * t.virtual_size,
-           0)) AS lower_band_sats_50,
-    SUM(IF(t.flag_a_50, b.median_fee_rate * t.virtual_size, 0)) AS upper_band_sats_50,
-    SUM(IF(b.is_full AND b.floor_fee_rate IS NOT NULL, t.virtual_size, 0))
-      AS full_block_vbytes
+    SUM(IF(t.flag_a_50, ${lower_band_sats}, 0)) AS lower_band_sats_50,
+    SUM(IF(t.flag_a_50, ${upper_band_sats}, 0)) AS upper_band_sats_50,
+    SUM(IF(${full_and_priced}, t.virtual_size, 0)) AS full_block_vbytes
   FROM `${dst}.txs` AS t
   JOIN `${dst}.blocks` AS b USING (block_number)
   WHERE NOT t.is_coinbase

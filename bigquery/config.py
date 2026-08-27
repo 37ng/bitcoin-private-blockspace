@@ -80,6 +80,21 @@ FULLNESS_GRID = (3_850_000, 3_900_000, 3_950_000)
 
 PRIMARY_SENSITIVITY = 0.5  # headline number; always report the grid with it
 
+# --- Revenue bands --------------------------------------------------------
+# The two bounds on what flagged space was worth. See `10_revenue_bands.sql`
+# for what each band means. They live here because step 07 and step 07c both
+# compute them, and a formula written twice is a formula that drifts.
+#
+# Both expressions assume the step aliases `txs` as `t` and `blocks` as `b`.
+LOWER_BAND_SATS = ("GREATEST(b.floor_fee_rate - t.effective_fee_rate, 0)"
+                   " * t.virtual_size")
+UPPER_BAND_SATS = "b.median_fee_rate * t.virtual_size"
+
+# A full block with no floor can hold no flagged transaction, so it belongs in
+# no denominator. `is_full` is set from weight and neighbour count alone and
+# does not imply a floor, so every share must test for both.
+FULL_AND_PRICED = "b.is_full AND b.floor_fee_rate IS NOT NULL"
+
 # --- Pipeline mechanics ---------------------------------------------------
 
 # Blocks per chunk when the union-find step streams transactions to Python.
@@ -128,4 +143,7 @@ def template_vars() -> dict:
         "primary_sensitivity": PRIMARY_SENSITIVITY,
         "sensitivity_grid": ", ".join(str(s) for s in SENSITIVITIES),
         "fullness_grid": ", ".join(str(w) for w in FULLNESS_GRID),
+        "lower_band_sats": LOWER_BAND_SATS,
+        "upper_band_sats": UPPER_BAND_SATS,
+        "full_and_priced": FULL_AND_PRICED,
     }

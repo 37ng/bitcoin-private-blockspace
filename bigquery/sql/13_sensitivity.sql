@@ -47,6 +47,8 @@ SELECT
          f.median_fee_rate * t.virtual_size, 0)) / 1e8 AS upper_band_btc
 FROM block_fullness AS f
 JOIN `${dst}.txs` AS t USING (block_number)
+-- `config.FULL_AND_PRICED`, spelled out because the fullness test here is the
+-- grid's own, not the one on `blocks`.
 WHERE f.is_full
   AND f.floor_fee_rate IS NOT NULL
   AND NOT t.is_coinbase
