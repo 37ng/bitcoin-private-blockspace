@@ -7,20 +7,20 @@ Everything runs from `run_pipeline.py`. Step 01 reads the public dataset once
 (~300 GB); every later step works on local tables and costs cents.
 
 ```
-01_tx_base      one pass over crypto_bitcoin.transactions
-02_blocks       block -> mining pool, plus an empty floor_fee_rate column
-03_txs          in-block CPFP edges, and the four non-relayable flags
-04_in_package   the subset that union-find has to look at
-04b union-find  Python: packages priced as sum(fee) / sum(vbytes)
-05_update       package rates written back onto txs
-06_block_floor  p05 of the effective rates in each block
-07_update       floor = median of the p05 of b-3..b-1, b+1..b+3
-08_fullness     which blocks were full, and had full neighbours
-09_flag_low_fee Flag A at 0.3 / 0.5 / 0.7 of the floor
-10_revenue      the two value bands per flagged transaction
-11_monthly      the monthly answer
-12_pool         the same answer per pool
-13_sensitivity  the 3x3 threshold grid
+01_tx_base       one pass over crypto_bitcoin.transactions
+02_blocks        block -> mining pool, plus an empty floor_fee_rate column
+03_txs           in-block CPFP edges, and the four non-relayable flags
+04a_in_package   the subset that union-find has to look at
+04b union-find   Python: packages priced as sum(fee) / sum(vbytes)
+04c_update       package rates written back onto txs
+05_block_floor   p05 of the effective rates in each block
+05b_update       floor = median of the p05 of b-3..b-1, b+1..b+3
+06a_fullness     which blocks were full, and had full neighbours
+06b_flag_low_fee Flag A at 0.3 / 0.5 / 0.7 of the floor
+07_revenue       the two value bands per flagged transaction
+07b_monthly      the monthly answer
+07c_pool         the same answer per pool
+08_sensitivity   the 3x3 threshold grid
 ```
 
 ## The four decisions that shape the answer
@@ -70,7 +70,7 @@ condition is what separates sustained demand from one busy minute.
   unfiltered value so the difference stays visible.
 - Percentiles are per transaction, not weighted by vbytes.
 - The fullness thresholds (3.9M WU, 4 of 6 neighbours) are choices, not facts.
-  `13_sensitivity` varies them.
+  `08_sensitivity` varies them.
 - Pool attribution reads the coinbase tag first and the payout address second.
   Tags are matched case-insensitively; `refresh_pools.py` replaces the built-in
   table with the public mempool.space list.

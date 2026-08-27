@@ -3,7 +3,7 @@
     python run_pipeline.py --dry-run          # what each step would scan
     python run_pipeline.py --smoke 2023-04    # one month, end to end, ~$0.15
     python run_pipeline.py                    # the full window
-    python run_pipeline.py --from 06_block_floor
+    python run_pipeline.py --from 05_block_floor
 
 Step 01 is the only expensive step: it reads ~300 GB of the public dataset
 once and everything after it works on local tables. The run asks before
@@ -22,17 +22,17 @@ STEPS = [
     ("01_tx_base", "sql", "read the public dataset once"),
     ("02_blocks", "sql", "attribute every block to a pool"),
     ("03_txs", "sql", "in-block CPFP edges and relay flags"),
-    ("04_in_package", "sql", "working set for the union-find pass"),
+    ("04a_in_package", "sql", "working set for the union-find pass"),
     ("04b_union_find", "python", "package fee rates, in Python"),
-    ("05_update_effective_fee", "sql", "write package rates onto txs"),
-    ("06_block_floor", "sql", "p05 effective rate per block"),
-    ("07_update_block_floor", "sql", "neighbour median floor onto blocks"),
-    ("08_block_fullness", "sql", "which blocks were full"),
-    ("09_flag_low_fee", "sql", "Flag A at 0.3 / 0.5 / 0.7"),
-    ("10_revenue_bands", "sql", "flagged transactions and their bands"),
-    ("11_monthly_summary", "sql", "the monthly answer"),
-    ("12_pool_summary", "sql", "the same answer per pool"),
-    ("13_sensitivity", "sql", "the 3x3 threshold grid"),
+    ("04c_update_effective_fee", "sql", "write package rates onto txs"),
+    ("05_block_floor", "sql", "p05 effective rate per block"),
+    ("05b_update_block_floor", "sql", "neighbour median floor onto blocks"),
+    ("06a_block_fullness", "sql", "which blocks were full"),
+    ("06b_flag_low_fee", "sql", "Flag A at 0.3 / 0.5 / 0.7"),
+    ("07_revenue_bands", "sql", "flagged transactions and their bands"),
+    ("07b_monthly_summary", "sql", "the monthly answer"),
+    ("07c_pool_summary", "sql", "the same answer per pool"),
+    ("08_sensitivity", "sql", "the 3x3 threshold grid"),
 ]
 
 CHECKS = [

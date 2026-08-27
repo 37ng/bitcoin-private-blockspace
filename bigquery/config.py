@@ -81,7 +81,7 @@ FULLNESS_GRID = (3_850_000, 3_900_000, 3_950_000)
 PRIMARY_SENSITIVITY = 0.5  # headline number; always report the grid with it
 
 # --- Revenue bands --------------------------------------------------------
-# The two bounds on what flagged space was worth. See `10_revenue_bands.sql`
+# The two bounds on what flagged space was worth. See `07_revenue_bands.sql`
 # for what each band means. They live here because step 07 and step 07c both
 # compute them, and a formula written twice is a formula that drifts.
 #

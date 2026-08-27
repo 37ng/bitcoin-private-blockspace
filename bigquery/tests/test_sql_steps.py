@@ -18,6 +18,7 @@ Two layers, because they cost different things to run.
 
 import glob
 import os
+import re
 
 import pytest
 
@@ -28,7 +29,10 @@ SQL_FILES = sorted(os.path.basename(p)
                    for p in glob.glob(os.path.join(bqio.SQL_DIR, "*.sql")))
 
 # Steps that read or write the summary tables the band formula feeds.
-BAND_STEPS = ("10_revenue_bands.sql", "12_pool_summary.sql")
+BAND_STEPS = ("07_revenue_bands.sql", "07c_pool_summary.sql")
+
+# Queries that sit outside the pipeline chain, so they carry no step number.
+UNNUMBERED = ("20_acceleration_summary.sql", "21_acceleration_by_pool.sql")
 
 DRY_RUN_ENABLED = os.environ.get("BQ_DRY_RUN") == "1"
 
@@ -47,6 +51,23 @@ def test_every_step_renders(name):
     """No step carries a `${placeholder}` that `config` no longer defines."""
     sql = bqio.render(name)
     assert "${" not in sql
+
+
+@pytest.mark.parametrize("name", SQL_FILES)
+def test_filename_matches_its_step_label(name):
+    """A step's number in its filename is the number in its first line.
+
+    The two drifted apart once: the files were numbered 01-13 in run order
+    while the comments numbered them by stage, so `10_revenue_bands.sql`
+    opened with "Step 07". Files outside the pipeline chain carry no label
+    and are exempt.
+    """
+    first_line = source(name).splitlines()[0]
+    match = re.match(r"-- Step ([0-9a-z]+):", first_line)
+    if match is None:
+        assert name in UNNUMBERED, f"{name} has no step label and is not exempt"
+        return
+    assert name.split("_")[0] == match.group(1)
 
 
 def source(name):
@@ -80,7 +101,7 @@ def test_band_formula_is_not_hand_written(name, arithmetic):
     assert arithmetic not in source(name)
 
 
-@pytest.mark.parametrize("name", ("11_monthly_summary.sql", "12_pool_summary.sql"))
+@pytest.mark.parametrize("name", ("07b_monthly_summary.sql", "07c_pool_summary.sql"))
 def test_full_block_denominator_requires_a_floor(name):
     """A full block with no floor must stay out of every denominator.
 
@@ -97,7 +118,7 @@ def test_full_block_denominator_requires_a_floor(name):
 
 def test_sensitivity_grid_uses_the_same_pair_of_tests():
     """Step 08 spells the test out under its own alias; it must still be both."""
-    sql = bqio.render("13_sensitivity.sql")
+    sql = bqio.render("08_sensitivity.sql")
     assert "f.is_full" in sql
     assert "f.floor_fee_rate IS NOT NULL" in sql
 
