@@ -119,11 +119,11 @@ def table_exists(table):
         return False
 
 
-def ensure_dataset():
-    """Create the destination dataset if it is missing."""
+def ensure_dataset(dataset=None):
+    """Create the given dataset (default `config.DATASET`) if it is missing."""
     from google.cloud import bigquery
     from google.cloud.exceptions import NotFound
-    ref = f"{config.PROJECT}.{config.DATASET}"
+    ref = f"{config.PROJECT}.{dataset or config.DATASET}"
     try:
         client().get_dataset(ref)
     except NotFound:

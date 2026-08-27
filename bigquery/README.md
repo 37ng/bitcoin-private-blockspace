@@ -107,6 +107,23 @@ so you can inspect it; once the local files hold what you need,
 `delete_dataset.py` drops it so storage does not grow across months. Local
 output stays on the order of megabytes per month.
 
+## The accelerations dataset
+
+`fetch_accelerations.py` and `run_accelerations.py` are a second, separate
+pipeline: they crawl the mempool.space acceleration history, not
+`crypto_bitcoin`, and write into their own dataset (`accelerations` by
+default, `BQ_ACCEL_DATASET`) instead of the working dataset above. That
+history is slow to (re)fetch and worth keeping, so `delete_dataset.py` — which
+only ever touches `BQ_DATASET` — cannot take it out between months.
+
+```bash
+python fetch_accelerations.py   # crawl mempool.space, load accelerations.accelerations
+python run_accelerations.py     # build the summary tables from it
+```
+
+`run_accelerations.py`'s steps live in `sql/accelerations/`, apart from the
+numbered `01`-`08` pipeline chain in `sql/`.
+
 ## Tests
 
 ```bash
