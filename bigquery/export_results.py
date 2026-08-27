@@ -9,9 +9,6 @@ Writes to `${OUT_DIR}` (default `out/`):
     headline.json            the numbers quoted in the write-up
     summary.md               a readable digest of all of the above
 
-`visualize.py` reads these files, not BigQuery, so charts can be redrawn
-without touching the warehouse.
-
 `export_month()` is what `run_pipeline.py --month` calls after a one-month
 run. The BigQuery working dataset holds only that month's tables (each
 pipeline step is a `CREATE OR REPLACE TABLE`), so it merges the fresh month
