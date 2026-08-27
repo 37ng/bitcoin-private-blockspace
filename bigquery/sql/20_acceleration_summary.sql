@@ -1,6 +1,6 @@
 -- Out-of-band spend through mempool.space, per month.
 --
--- Numbered outside the 01-13 pipeline chain because this is not part of the
+-- Numbered outside the 01-08 pipeline chain because this is not part of the
 -- measurement: it is a labelled sample of confirmed out-of-auction purchases,
 -- used to calibrate the pipeline and to bound what the public broker explains.
 --

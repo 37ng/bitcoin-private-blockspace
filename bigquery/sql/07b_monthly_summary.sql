@@ -13,7 +13,7 @@ WITH full_block_totals AS (
     COUNT(*) AS full_block_txs
   FROM `${dst}.txs` AS t
   JOIN `${dst}.blocks` AS b USING (block_number)
-  WHERE b.is_full AND b.floor_fee_rate IS NOT NULL AND NOT t.is_coinbase
+  WHERE ${full_and_priced} AND NOT t.is_coinbase
   GROUP BY t.block_month
 ),
 all_totals AS (
