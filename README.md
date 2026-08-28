@@ -10,15 +10,18 @@ full block at a price the public auction would never have cleared, and it is
 not explained by relay policy. This repository measures how much of it there
 is, per month and per pool, and puts two bounds on what it was worth.
 
-The pipeline lives in [`bigquery/`](bigquery/); its README covers the method,
-the assumptions, and what the numbers do and do not say.
+The `crypto_bitcoin` pipeline lives in [`raw/`](raw/); its README covers the
+method, the assumptions, and what the numbers do and do not say. A second,
+separate pipeline in [`acceleration/`](acceleration/) crawls the
+mempool.space acceleration history — see the "accelerations dataset" section
+of the `raw/` README for how the two relate.
 
 ## Run it
 
 ```bash
 uv sync
 gcloud auth application-default login
-cd bigquery
+cd raw
 uv run python -m pytest tests/ -q              # offline, no credentials needed
 uv run python run_pipeline.py --dry-run        # what each step would scan
 uv run python run_pipeline.py --month 2023-04  # one month, end to end

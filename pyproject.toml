@@ -17,4 +17,4 @@ dependencies = [
 dev = ["pytest>=8.0.0"]
 
 [tool.pytest.ini_options]
-testpaths = ["bigquery/tests"]
+testpaths = ["raw/tests", "acceleration/tests"]

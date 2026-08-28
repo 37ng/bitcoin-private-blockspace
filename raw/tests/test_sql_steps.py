@@ -28,12 +28,9 @@ import config
 SQL_FILES = sorted(os.path.basename(p)
                    for p in glob.glob(os.path.join(bqio.SQL_DIR, "*.sql")))
 
-# The acceleration steps live in `sql/accelerations/`, in their own dataset,
-# outside the 01-08 pipeline chain -- covered by their own tests below rather
-# than folded into SQL_FILES's numbered-step checks.
-ACCEL_SQL_FILES = sorted(
-    "accelerations/" + os.path.basename(p)
-    for p in glob.glob(os.path.join(bqio.SQL_DIR, "accelerations", "*.sql")))
+# The acceleration steps live in `../acceleration/sql/`, in their own
+# dataset, outside the 01-08 pipeline chain -- covered by their own tests in
+# `acceleration/tests/test_sql_steps.py` rather than folded in here.
 
 # Steps that read or write the summary tables the band formula feeds.
 BAND_STEPS = ("07_revenue_bands.sql", "07c_pool_summary.sql")
@@ -49,28 +46,13 @@ requires_bigquery = pytest.mark.skipif(
 def test_sql_dir_is_not_empty():
     """A glob that silently matches nothing would make every test below pass."""
     assert len(SQL_FILES) >= 13
-    assert len(ACCEL_SQL_FILES) >= 2
 
 
-@pytest.mark.parametrize("name", SQL_FILES + ACCEL_SQL_FILES)
+@pytest.mark.parametrize("name", SQL_FILES)
 def test_every_step_renders(name):
     """No step carries a `${placeholder}` that `config` no longer defines."""
     sql = bqio.render(name)
     assert "${" not in sql
-
-
-@pytest.mark.parametrize("name", ACCEL_SQL_FILES)
-def test_accel_steps_write_the_accel_dataset(name):
-    """Accelerations tables live in `${accel_dst}`, never in the pipeline's `${dst}`.
-
-    They are fetched from mempool.space, not `crypto_bitcoin`, and
-    `delete_dataset.py` drops `${dst}` between months -- a table that landed
-    there by mistake would vanish with the rest of the disposable pipeline
-    tables.
-    """
-    sql = bqio.render(name)
-    assert f"CREATE OR REPLACE TABLE `{config.accel_dst()}." in sql
-    assert f"{config.dst()}.acceleration" not in sql
 
 
 @pytest.mark.parametrize("name", SQL_FILES)
@@ -168,7 +150,7 @@ def test_sensitivity_grid_is_keyed_by_month():
 
 
 @requires_bigquery
-@pytest.mark.parametrize("name", SQL_FILES + ACCEL_SQL_FILES)
+@pytest.mark.parametrize("name", SQL_FILES)
 def test_step_dry_runs(name):
     """BigQuery parses and plans the step. Free: a dry run scans nothing."""
     from google.api_core.exceptions import NotFound

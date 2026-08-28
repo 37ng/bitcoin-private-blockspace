@@ -11,18 +11,24 @@ between months -- never takes it out with the disposable pipeline tables.
 """
 
 import argparse
+import os
+import sys
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "raw"))
 
 import bqio
 import config
 
+SQL_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sql")
+
 STEPS = [
-    ("accelerations/acceleration_monthly", "out-of-band spend per month"),
-    ("accelerations/acceleration_by_pool", "out-of-band spend per pool"),
+    ("acceleration_monthly", "out-of-band spend per month"),
+    ("acceleration_by_pool", "out-of-band spend per pool"),
 ]
 
 
 def sql_name(step):
-    return f"{step}.sql"
+    return os.path.join(SQL_DIR, f"{step}.sql")
 
 
 def dry_run(steps):

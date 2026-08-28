@@ -27,7 +27,7 @@ with no in-block paying child is unambiguously non-relayable.
 
 ## Verification
 
-1. **Fixture tests** (`bigquery/tests/`). Synthetic blocks built as inline
+1. **Fixture tests** (`raw/tests/`). Synthetic blocks built as inline
    `UNNEST([STRUCT(...)])` and run through *the same SQL text* as the
    pipeline, with source tables substituted — one implementation, no
    parallel Python version to drift out of sync. Inline data scans 0
@@ -50,7 +50,7 @@ with no in-block paying child is unambiguously non-relayable.
      is arguably a false positive for the off-chain claim. Record the
      count either way.
 
-   Rate-limited with a sleep, responses cached to `bigquery/.cache/`,
+   Rate-limited with a sleep, responses cached to `raw/.cache/`,
    since each call returns a full block template.
 
 3. **Pool share sanity check** (`sanity_check.py`, spec section "blocks").
@@ -63,11 +63,11 @@ with no in-block paying child is unambiguously non-relayable.
    the finding is threshold-driven and has to be reported that way.
 
 ```bash
-cd bigquery && python -m pytest tests/ -v && python run_pipeline.py && python validate_against_mempool.py && python sanity_check.py
+cd raw && python -m pytest tests/ -v && python run_pipeline.py && python validate_against_mempool.py && python sanity_check.py
 ```
 
 Setup before the first run:
 
 ```bash
-pip install -r bigquery/requirements.txt && gcloud auth application-default login
+pip install -r raw/requirements.txt && gcloud auth application-default login
 ```

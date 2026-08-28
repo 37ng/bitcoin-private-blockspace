@@ -88,6 +88,8 @@ import time
 
 import requests
 
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "raw"))
+
 import config
 
 API = "https://mempool.space/api/v1/services/accelerator/accelerations/history"
