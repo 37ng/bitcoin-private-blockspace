@@ -11,86 +11,59 @@ by mempool.space. `sanity_check.py` compares the resulting share per pool
 against a public hashrate chart; a share off by more than ~2 points means
 attribution is broken and every downstream number is suspect.
 
-The built-in table below covers the pools that mined blocks between 2023 and
-2026. `refresh_pools.py` overwrites `pools_known.json` from the public
-mempool.space pool list, and that file wins when it is present.
+The marks themselves come from one place: `pools_known.json`, written by
+`refresh_pools.py` from the public mempool.space pool list. There is no
+second, hand-kept copy to drift out of sync with it. The file is committed,
+so a checkout can run the pipeline and so the exact table behind a published
+number is recorded in git; re-run `refresh_pools.py` to move it forward.
 """
 
 import json
 import os
 
-# (pool name, coinbase tags, payout addresses)
-# Tags are matched as substrings of the ASCII-decoded coinbase scriptSig.
-BUILTIN_POOLS = [
-    ("Foundry USA", ["/Foundry USA Pool", "Foundry USA Pool"],
-     ["bc1qxhmdufsvnuaaaer4ynz88fspdsxq2h9e9cetdj"]),
-    ("AntPool", ["/AntPool/", "Mined by AntPool", "AntPool"],
-     ["bc1qvy4074rggkdr2pzn5vpcmsxv0nx5rlm5v3wht0"]),
-    ("ViaBTC", ["/ViaBTC/", "viabtc.com"],
-     ["1Hz96kJKF2HLPGY15JWLB5m9qGNxvt8tHJ",
-      "bc1qc7ec6dgtu9v7dc4vwfsqmpzns3v4tkx5cs29qc"]),
-    ("F2Pool", ["/F2Pool/", "七彩神仙鱼", "/fish/"],
-     ["1KFHE7w8BhaENAswwryaoccDb6qcT6DbYY",
-      "bc1qxpzenn7yaflv8u0v9vfhstt62vvyj0dw0hxpxc"]),
-    ("Binance Pool", ["/Binance/", "binance"],
-     ["1FZoQTVXVQjTaXAoDNWLZfWiwzhX5cmyMQ",
-      "bc1q4vxn43l44h30nkluqfxd9eckf45vr2awz38lwa"]),
-    ("Braiins Pool", ["/slush/", "/Braiins Pool/", "braiins.com"],
-     ["1CK6KHY6MHgYvmRQ4PAafKYDrg1ejbH1cE"]),
-    ("Luxor", ["/Luxor/", "/LuxorTech/", "luxor.tech",
-               "Powered by Luxor Tech"], []),
-    ("SBI Crypto", ["/SBICrypto.com Pool/", "SBICrypto"], []),
-    ("SecPool", ["/SecPool/"], []),
-    ("MARA Pool", ["MARA Pool", "/Mara Pool/", "MARA Made in USA",
-                   "MARA/", "/MARA"], []),
-    ("SpiderPool", ["/SPIDERPOOL/", "spiderpool"], []),
-    ("Poolin", ["/poolin.com", "/Poolin/"], []),
-    ("BTC.com", ["/BTC.COM/", "btccom"], []),
-    ("SECPOOL", ["/SECPOOL/"], []),
-    ("ULTIMUSPOOL", ["/ULTIMUSPOOL/", "ultimuspool", "/ultimus/"], []),
-    ("Carbon Negative", ["Carbon Negative", "/carbonnegative/"], []),
-    ("WhitePool", ["/WhitePool/", "whitepool"], []),
-    ("OCEAN", ["/OCEAN.XYZ/", "OCEAN.XYZ", "/ocean.xyz/"], []),
-    ("BitFuFu", ["/BitFuFuPool/", "bitfufu"], []),
-    ("Terra Pool", ["/TERRAPOOL/", "terrapool"], []),
-    ("Titan", ["/Titan.io/", "titan.io"], []),
-    ("Mining Squared", ["/Mining Squared/", "MiningSquared", "/bsquared/"], []),
-    ("Bitdeer", ["/BitdeerPool/", "bitdeer"], []),
-    ("EMCD", ["/EMCDPool/", "/emcd/", "emcd.io"], []),
-    ("Pega Pool", ["/pegapool/", "PEGA Pool"], []),
-    ("Neopool", ["/Neopool/", "neopool"], []),
-    ("Rawpool", ["/Rawpool.com/"], []),
-    ("KuCoinPool", ["/KuCoinPool/", "kucoin"], []),
-    ("BTC.TOP", ["/BTC.TOP/"], []),
-    ("Sigmapool", ["/sigmapool.com/"], []),
-    ("1THash", ["/1THash/", "1thash"], []),
-    ("NiceHash", ["/NiceHash/", "nicehash"], []),
-    ("SoloCK", ["/solo.ckpool.org/", "solo.ckpool"], []),
-    ("CKPool", ["/ckpool.org/", "/ckpool/"], []),
-    ("Public Pool", ["/public-pool/", "public-pool.io"], []),
-    ("Parasite", ["parasite.wtf", "/parasite/"], []),
-    ("Bitaxe", ["/bitaxe/"], []),
-    ("OKKONG", ["/OKKONG/", "okkong"], []),
-    ("Genesis Mining", ["/Genesis/"], []),
-    ("Sato Pool", ["/SatoPool/", "/sato/"], []),
-    ("Bitcoin Mining Council", ["/BMC/"], []),
-]
-
 _JSON_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                           "pools_known.json")
 
 
+MISSING = (f"{os.path.basename(_JSON_PATH)} is missing or empty. "
+           "Run `python refresh_pools.py` to download the pool list.")
+
+
 def load_pools():
-    """Return [(name, [tags], [addresses])], preferring the refreshed file."""
-    if os.path.exists(_JSON_PATH):
-        with open(_JSON_PATH) as fh:
-            data = json.load(fh)
-        pools = []
-        for name, entry in sorted(data.items()):
-            pools.append((name, entry.get("tags", []), entry.get("addresses", [])))
-        if pools:
-            return pools
-    return BUILTIN_POOLS
+    """Return `[(name, [tags], [addresses])]` from the downloaded pool list."""
+    if not os.path.exists(_JSON_PATH):
+        raise RuntimeError(MISSING)
+    with open(_JSON_PATH) as fh:
+        data = json.load(fh)
+    pools = [(name, entry.get("tags") or [], entry.get("addresses") or [])
+             for name, entry in sorted(data.items())
+             if isinstance(entry, dict)]
+    if not pools:
+        raise RuntimeError(MISSING)
+    return pools
+
+
+def load_pool_ids():
+    """Return `{pool id: pool name}` from the refreshed file.
+
+    The id is mempool.space's `poolUniqueId`, which is what the acceleration
+    API reports: `mined_by_pool_unique_id`, and every entry of the `pools`
+    array of partner pools a request was offered to. Older copies of the
+    file carry no ids, so this is empty until `refresh_pools.py` has run
+    since ids were added.
+    """
+    if not os.path.exists(_JSON_PATH):
+        return {}
+    with open(_JSON_PATH) as fh:
+        data = json.load(fh)
+    ids = {}
+    for name, entry in data.items():
+        if not isinstance(entry, dict):
+            continue
+        pool_id = entry.get("id")
+        if isinstance(pool_id, int) and not isinstance(pool_id, bool):
+            ids[pool_id] = name
+    return ids
 
 
 def _sql_string(value: str) -> str:
@@ -141,4 +114,22 @@ def address_struct_sql() -> str:
     if not rows:
         # An empty array literal needs an explicit type in BigQuery.
         return ("ARRAY<STRUCT<pool_name STRING, address STRING>>[]")
+    return "[\n    " + ",\n    ".join(rows) + "\n  ]"
+
+
+def pool_id_struct_sql() -> str:
+    """`UNNEST([...])` body mapping a mempool.space pool id to a pool name.
+
+    This is for reading the acceleration `pools` array, the list of partner
+    pools a request was offered to. It is not for block attribution: which
+    pool mined a block is decided by the coinbase, above, so that the project
+    keeps one definition of "which pool".
+    """
+    ids = load_pool_ids()
+    if not ids:
+        # An empty array literal needs an explicit type in BigQuery.
+        return "ARRAY<STRUCT<pool_name STRING, pool_unique_id INT64>>[]"
+    rows = [f"STRUCT({_sql_string(name)} AS pool_name, "
+            f"{pool_id} AS pool_unique_id)"
+            for pool_id, name in sorted(ids.items())]
     return "[\n    " + ",\n    ".join(rows) + "\n  ]"

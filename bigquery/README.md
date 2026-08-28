@@ -110,8 +110,10 @@ condition is what separates sustained demand from one busy minute.
 - The fullness thresholds (3.9M WU, 4 of 6 neighbours) are choices, not facts.
   `08_sensitivity` varies them.
 - Pool attribution reads the coinbase tag first and the payout address second.
-  Tags are matched case-insensitively; `refresh_pools.py` replaces the built-in
-  table with the public mempool.space list.
+  Tags are matched case-insensitively. The tags and addresses come only from
+  `pools_known.json`, which `refresh_pools.py` downloads from the public
+  mempool.space list; the file is committed, so the table behind a published
+  number is pinned in git. A pool absent from that list lands in `Unknown`.
 
 ## Cost
 
