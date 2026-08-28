@@ -37,6 +37,7 @@ ACCEL_SQL_FILES = sorted(
 
 # Steps that read or write the summary tables the band formula feeds.
 BAND_STEPS = ("07_revenue_bands.sql", "07c_pool_summary.sql")
+DENOMINATOR_STEPS = ("07b_monthly_summary.sql", "07c_pool_summary.sql")
 
 DRY_RUN_ENABLED = os.environ.get("BQ_DRY_RUN") == "1"
 
@@ -117,7 +118,7 @@ def test_band_formula_is_not_hand_written(name, arithmetic):
     assert arithmetic not in source(name)
 
 
-@pytest.mark.parametrize("name", ("07b_monthly_summary.sql", "07c_pool_summary.sql"))
+@pytest.mark.parametrize("name", DENOMINATOR_STEPS)
 def test_full_block_denominator_requires_a_floor(name):
     """A full block with no floor must stay out of every denominator.
 
@@ -126,17 +127,31 @@ def test_full_block_denominator_requires_a_floor(name):
     counting it below the line only deflates the share.
     """
     text = source(name)
-    assert "${full_and_priced}" in text
+    assert "${low_fee_denominator}" in text
     # ...and no bare `b.is_full` slipped back in beside it.
     assert "b.is_full" not in text
     assert config.FULL_AND_PRICED in bqio.render(name)
 
 
-def test_sensitivity_grid_uses_the_same_pair_of_tests():
-    """Step 08 spells the test out under its own alias; it must still be both."""
+@pytest.mark.parametrize("name", DENOMINATOR_STEPS)
+def test_full_block_denominator_excludes_nonrelayable(name):
+    """Non-relayable space must stay out of every denominator too.
+
+    Step 06b never marks a non-relayable transaction low-fee, so those vbytes
+    can only ever sit below the line. Leaving them there measures low-fee relayable
+    space against space that was never in the auction, and quietly deflates
+    the share by however much non-relayable traffic the month happened to
+    carry.
+    """
+    assert "NOT t.is_nonrelayable" in bqio.render(name)
+
+
+def test_sensitivity_grid_uses_the_same_tests():
+    """Step 08 spells the tests out under its own aliases; it must still be all three."""
     sql = bqio.render("08_sensitivity.sql")
     assert "f.is_full" in sql
     assert "f.floor_fee_rate IS NOT NULL" in sql
+    assert "NOT t.is_nonrelayable" in sql
 
 
 @requires_bigquery

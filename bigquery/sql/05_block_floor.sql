@@ -8,7 +8,7 @@
 -- itself, median as the average of the middle two.
 --
 -- All six neighbours must have a p05 or the floor is NULL and the block takes
--- no part in the flagging. That happens only at the two ends of the window.
+-- no part in the low-fee test. That happens only at the two ends of the window.
 --
 -- The percentile runs over relayable transactions. A non-relayable transaction
 -- never entered the public auction, so leaving it in would let the traffic

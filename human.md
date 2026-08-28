@@ -3,15 +3,13 @@
 how much Bitcoin block space between Jan 2023 and now was sold outside the public fee auction?
 
 We will have 3 type of market, plausibility high to low
-1. data from mempool.space /acceleration api, which txs they publish as private tx fee.
-2. non-relayable txs, which is obvious that they are private.
-3. effective tx fee < fraction of block floor fee, then we consider it private fee tx.
+1. data from mempool.space /acceleration api
+2. non-relayable txs that don't conform to node relay rules. different timespan has diff rules.
+3. low fee txs: we set a grid to filter out txs that are considered low fee. (3 floor_B * 3 block fullness)
 
 ## data pipeline
 
 Use data in google cloud big query public dataset: `crypto_bitcoin`, in which we have `blocks` and `transactions` tables.
-
-Don't partition by month or cluster by block number when anticipated table is less than 1GB.
 
 ### blocks
 

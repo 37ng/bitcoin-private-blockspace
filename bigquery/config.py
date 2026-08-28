@@ -7,7 +7,7 @@ once and cannot drift between steps.
 
 import os
 
-# --- BigQuery targets -----------------------------------------------------
+# --- BigQuery targets ----------------------------------------------------
 
 PROJECT = os.environ.get("BQ_PROJECT", "bitcoin-private-blockspace")
 DATASET = os.environ.get("BQ_DATASET", "blockspace")
@@ -21,7 +21,7 @@ ACCEL_DATASET = os.environ.get("BQ_ACCEL_DATASET", "accelerations")
 
 SOURCE = "bigquery-public-data.crypto_bitcoin"
 
-# --- Study window ---------------------------------------------------------
+# --- Study window --------------------------------------------------------
 
 START_DATE = os.environ.get("START_DATE", "2023-01-01")
 # Open-ended by default: "now" is whatever the public dataset holds.
@@ -57,7 +57,7 @@ def set_month(month_str: str) -> None:
 if MONTH:
     set_month(MONTH)
 
-# --- Policy dates and standardness limits ---------------------------------
+# --- Policy dates and standardness limits --------------------------------
 # A transaction is "non-relayable" when a default-configured node of the day
 # would refuse to relay it. Such a transaction cannot reach a miner through
 # the public mempool, so it did not buy its block space in the public auction.
@@ -96,15 +96,15 @@ BLOCK_WEIGHT_FULL = 3_900_000
 # ...and it counts as full only when demand was sustained around it.
 FULL_NEIGHBOURS_REQUIRED = 4  # of the 6 neighbours
 
-# --- Flag A sensitivity ---------------------------------------------------
+# --- Low-fee sensitivity --------------------------------------------------
 
 SENSITIVITIES = (0.3, 0.5, 0.7)
 FULLNESS_GRID = (3_850_000, 3_900_000, 3_950_000)
 
 PRIMARY_SENSITIVITY = 0.5  # headline number; always report the grid with it
 
-# --- Revenue bands --------------------------------------------------------
-# The two bounds on what flagged space was worth. See `07_revenue_bands.sql`
+# --- Revenue bands -------------------------------------------------------
+# The two bounds on what low-fee space was worth. See `07_revenue_bands.sql`
 # for what each band means. They live here because step 07 and step 07c both
 # compute them, and a formula written twice is a formula that drifts.
 #
@@ -113,12 +113,19 @@ LOWER_BAND_SATS = ("GREATEST(b.floor_fee_rate - t.effective_fee_rate, 0)"
                    " * t.virtual_size")
 UPPER_BAND_SATS = "b.median_fee_rate * t.virtual_size"
 
-# A full block with no floor can hold no flagged transaction, so it belongs in
+# A full block with no floor can hold no low-fee transaction, so it belongs in
 # no denominator. `is_full` is set from weight and neighbour count alone and
 # does not imply a floor, so every share must test for both.
 FULL_AND_PRICED = "b.is_full AND b.floor_fee_rate IS NOT NULL"
 
-# --- Pipeline mechanics ---------------------------------------------------
+# The space every low-fee share is measured against. The low-fee test never
+# fires on non-relayable traffic (step 06b): it never entered the public
+# auction, so its price says nothing about a discount. Space that can never
+# reach the numerator would only deflate the share, so it stays out of the
+# denominator too. Step 08 applies the same three tests under its own aliases.
+LOW_FEE_DENOMINATOR = FULL_AND_PRICED + " AND NOT t.is_nonrelayable"
+
+# --- Pipeline mechanics --------------------------------------------------
 
 # Blocks per chunk when the union-find step streams transactions to Python.
 UNIONFIND_CHUNK_BLOCKS = int(os.environ.get("UNIONFIND_CHUNK_BLOCKS", "5000"))
@@ -175,4 +182,5 @@ def template_vars() -> dict:
         "lower_band_sats": LOWER_BAND_SATS,
         "upper_band_sats": UPPER_BAND_SATS,
         "full_and_priced": FULL_AND_PRICED,
+        "low_fee_denominator": LOW_FEE_DENOMINATOR,
     }

@@ -6,10 +6,10 @@
 -- the longest matching tag wins among tags, so a specific brand beats a
 -- generic substring.
 --
--- `floor_fee_rate` is created empty here and filled by step 06. The other
--- empty columns are filled by step 07. The table holds one row per block
--- (~180k rows for the window), which is far below 1 GB, so it is neither
--- partitioned nor clustered.
+-- `floor_fee_rate`, `p05_fee_rate` and `median_fee_rate` are created empty
+-- here and filled by step 05b; the three fullness columns by step 06a. The
+-- table holds one row per block (~4,300 rows for a month), which is far below
+-- 1 GB, so it is neither partitioned nor clustered.
 CREATE OR REPLACE TABLE `${dst}.blocks`
 OPTIONS (
   description = "One row per block: pool attribution, fullness, and the neighbour-derived fee floor."
