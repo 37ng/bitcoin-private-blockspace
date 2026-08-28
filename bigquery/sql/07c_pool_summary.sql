@@ -5,7 +5,7 @@
 -- `sanity_check.py`: if a pool's block share does not match public hashrate
 -- data, its row here is meaningless.
 --
--- The denominator is `config.COUNTABLE_SPACE`, the same test step 07b uses.
+-- The denominator is `config.LOW_FEE_DENOMINATOR`, the same test step 07b uses.
 -- A full block without a floor, and any non-relayable transaction, can hold or
 -- be no low-fee transaction, so counting either here would only push every
 -- pool's share down.
@@ -24,7 +24,7 @@ WITH per_pool AS (
     SUM(IF(t.low_fee_70, t.virtual_size, 0)) AS low_fee_vbytes_70,
     SUM(IF(t.low_fee_50, ${lower_band_sats}, 0)) AS lower_band_sats_50,
     SUM(IF(t.low_fee_50, ${upper_band_sats}, 0)) AS upper_band_sats_50,
-    SUM(IF(${countable_space}, t.virtual_size, 0)) AS full_block_vbytes
+    SUM(IF(${low_fee_denominator}, t.virtual_size, 0)) AS full_block_vbytes
   FROM `${dst}.txs` AS t
   JOIN `${dst}.blocks` AS b USING (block_number)
   WHERE NOT t.is_coinbase

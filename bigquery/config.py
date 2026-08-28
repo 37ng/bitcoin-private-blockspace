@@ -118,12 +118,12 @@ UPPER_BAND_SATS = "b.median_fee_rate * t.virtual_size"
 # does not imply a floor, so every share must test for both.
 FULL_AND_PRICED = "b.is_full AND b.floor_fee_rate IS NOT NULL"
 
-# The space every share is measured against. The low-fee test never fires on
-# non-relayable traffic (step 06b): it never entered the public auction, so its
-# price says nothing about a discount. Space that can never reach the numerator
-# would only deflate the share, so it stays out of the denominator too. Step 08
-# applies the same three tests under its own aliases.
-COUNTABLE_SPACE = FULL_AND_PRICED + " AND NOT t.is_nonrelayable"
+# The space every low-fee share is measured against. The low-fee test never
+# fires on non-relayable traffic (step 06b): it never entered the public
+# auction, so its price says nothing about a discount. Space that can never
+# reach the numerator would only deflate the share, so it stays out of the
+# denominator too. Step 08 applies the same three tests under its own aliases.
+LOW_FEE_DENOMINATOR = FULL_AND_PRICED + " AND NOT t.is_nonrelayable"
 
 # --- Pipeline mechanics --------------------------------------------------
 
@@ -182,5 +182,5 @@ def template_vars() -> dict:
         "lower_band_sats": LOWER_BAND_SATS,
         "upper_band_sats": UPPER_BAND_SATS,
         "full_and_priced": FULL_AND_PRICED,
-        "countable_space": COUNTABLE_SPACE,
+        "low_fee_denominator": LOW_FEE_DENOMINATOR,
     }

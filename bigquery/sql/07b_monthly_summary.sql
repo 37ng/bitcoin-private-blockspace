@@ -2,7 +2,7 @@
 --
 -- `private_vbytes_share` is the headline: the fraction of block space in full
 -- blocks that changed hands below the public price. The denominator is
--- `config.COUNTABLE_SPACE`: vbytes in full, priced blocks only, since only
+-- `config.LOW_FEE_DENOMINATOR`: vbytes in full, priced blocks only, since only
 -- there is a discount meaningful, and relayable only, to match a numerator
 -- that can never contain non-relayable space. Non-relayable traffic is
 -- reported on its own rows below, against `all_vbytes`.
@@ -16,7 +16,7 @@ WITH full_block_totals AS (
     COUNT(*) AS full_block_txs
   FROM `${dst}.txs` AS t
   JOIN `${dst}.blocks` AS b USING (block_number)
-  WHERE ${countable_space} AND NOT t.is_coinbase
+  WHERE ${low_fee_denominator} AND NOT t.is_coinbase
   GROUP BY t.block_month
 ),
 all_totals AS (

@@ -127,7 +127,7 @@ def test_full_block_denominator_requires_a_floor(name):
     counting it below the line only deflates the share.
     """
     text = source(name)
-    assert "${countable_space}" in text
+    assert "${low_fee_denominator}" in text
     # ...and no bare `b.is_full` slipped back in beside it.
     assert "b.is_full" not in text
     assert config.FULL_AND_PRICED in bqio.render(name)
