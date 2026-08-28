@@ -4,8 +4,13 @@
 -- of a full block. Read this before quoting any headline: a number that moves
 -- by an order of magnitude across the grid is a statement about the cut-offs,
 -- not about private blockspace.
+--
+-- The grid is grouped by month as well as by cell, so `export_results.py`
+-- can replace one month in `out/low_fee_sensitivity.json` instead of adding
+-- to it. The cells are summed back across months when the write-up is
+-- generated; the share is recomputed there, not summed.
 CREATE OR REPLACE TABLE `${dst}.low_fee_sensitivity`
-OPTIONS (description = "Low-fee space across the sensitivity x fullness grid.")
+OPTIONS (description = "Low-fee space across the sensitivity x fullness grid, per month.")
 AS
 WITH grid AS (
   SELECT sensitivity, full_weight
@@ -31,6 +36,7 @@ block_fullness AS (
            centre.weight, centre.floor_fee_rate, centre.median_fee_rate
 )
 SELECT
+  t.block_month,
   f.sensitivity,
   f.full_weight,
   COUNTIF(t.effective_fee_rate < f.sensitivity * f.floor_fee_rate) AS low_fee_txs,
@@ -53,5 +59,5 @@ WHERE f.is_full
   AND f.floor_fee_rate IS NOT NULL
   AND NOT t.is_coinbase
   AND NOT t.is_nonrelayable
-GROUP BY f.sensitivity, f.full_weight
-ORDER BY f.sensitivity, f.full_weight
+GROUP BY t.block_month, f.sensitivity, f.full_weight
+ORDER BY t.block_month, f.sensitivity, f.full_weight

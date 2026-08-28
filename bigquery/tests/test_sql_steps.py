@@ -154,6 +154,19 @@ def test_sensitivity_grid_uses_the_same_tests():
     assert "NOT t.is_nonrelayable" in sql
 
 
+def test_sensitivity_grid_is_keyed_by_month():
+    """Step 08 must group by month, or the export cannot replace a month.
+
+    The grid's cells are sums. `export_results.py` merges `out/` by dropping
+    the months a run covers and writing the fresh rows in their place; with
+    no month on the row there is no key to drop, and re-running a month would
+    double every cell it touches.
+    """
+    sql = bqio.render("08_sensitivity.sql")
+    assert "GROUP BY t.block_month, f.sensitivity, f.full_weight" in sql
+    assert "t.block_month,\n  f.sensitivity" in sql
+
+
 @requires_bigquery
 @pytest.mark.parametrize("name", SQL_FILES + ACCEL_SQL_FILES)
 def test_step_dry_runs(name):

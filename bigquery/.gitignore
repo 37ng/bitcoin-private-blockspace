@@ -1,4 +1,3 @@
 .cache/
-out/
 pools_known.json
 __pycache__/
