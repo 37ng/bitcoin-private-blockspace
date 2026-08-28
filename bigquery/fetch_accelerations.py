@@ -1,4 +1,4 @@
-"""Pull the full mempool.space acceleration history and load it to BigQuery.
+"""Fetch the mempool.space acceleration history into BigQuery.
 
 An acceleration is an out-of-band payment. The sender pays mempool.space by
 card or Lightning, mempool.space asks its partner pools to treat the
@@ -11,47 +11,58 @@ measures. It is not the measurement itself -- it covers a single broker,
 only from that broker's launch, and only standard transactions -- but every
 record is a confirmed out-of-auction purchase with a known price.
 
-Two payment fields exist and they are not interchangeable:
+    python fetch_accelerations.py                       # top up with what is new
+    python fetch_accelerations.py --full                # crawl everything, replace
+    python fetch_accelerations.py --back-to 2024-01-01  # extend further back
 
-    feeDelta    sats credited to the miner for this transaction
-    bidBoost    extra amount recorded against the v2 bidding model
+This script only fetches. It forms no opinion about months, prints no totals
+and writes no summary: `run_accelerations.py` aggregates and
+`export_accelerations.py` decides what is complete enough to publish.
 
-The /accelerations/stats endpoint publishes `totalBidBoost` only, so it
-cannot be trusted as "the total paid" without checking which field it
-actually sums. This script totals both and prints the comparison, so the
-answer rests on the records rather than on a field name.
+--- the one invariant -------------------------------------------------------
 
-    python fetch_accelerations.py                    # top up: read what is new
-    python fetch_accelerations.py --full             # re-crawl the whole history
-    python fetch_accelerations.py --since 2024-01-01 --until 2024-04-01
-    python fetch_accelerations.py --no-load          # fetch and summarise only
+The table always holds ONE CONTIGUOUS RUN of the history, from some oldest
+record up to the newest. Every mode here extends that run and none of them can
+create an island, so between `MIN(added)` and `MAX(added)` nothing is missing.
 
-A top-up is the normal run. The history endpoint is newest-first and takes no
-`since` parameter, so a top-up walks from page 1 and stops once it has read
-`--overlap` consecutive pages lying entirely at or before the watermark. The
-watermark defaults to `MAX(added)` already in BigQuery.
+That is the whole reason the export needs no bookkeeping. "Which stretch of
+history do we hold?" is answered by two aggregates over the data itself, and
+"is this month complete?" follows from them. A ledger of what had been fetched
+would be a second source of truth, free to drift from the rows it describes.
 
-`--until` asks for a range instead: the records added between `--since` (the
-start of the history when left out) and `--until`. This is the flag to reach
-for when the whole crawl is too slow to sit through -- a year of history is
-about 600 pages at three requests a minute -- because a range is appended on
-the same `(txid, added)` key as a top-up. Ranges can therefore be fetched one
-at a time, in any order, and an overlap between two of them costs nothing.
+Contiguity is not assumed, it is enforced. A top-up refuses to stop until it
+has actually READ A RECORD IT ALREADY HAS -- touching the existing run is what
+proves the new records join onto it rather than floating above a gap. A
+backfill starts from the oldest record already held and walks down from there,
+for the same reason.
 
-A range that ends far back sits hundreds of pages down the list, and walking
-to it would cost one request per page. Ordering pays for itself again here:
-the entry page is found by halving the page range, about 10 requests instead
-of 600, and the walk then starts `--overlap` pages above it.
+This is also why there is no "fetch me an arbitrary date range". Such a range
+would land a disconnected island; `MIN`/`MAX` would then span records that were
+never read, and a half-fetched month would be published as a finished one. The
+range machinery survives as `--back-to`, anchored to what is already held.
 
-The watermark is a comparison, never a lookup. Nothing has to still exist at
-that timestamp for the walk to resume correctly -- `added > watermark` selects
-the records that follow it, not the one it came from.
+--- what gets stored --------------------------------------------------------
 
-Ordering is what makes a partial walk safe. The list is sorted by `added`
-descending and `added` never changes, so a new acceleration can only push
-records towards higher page numbers -- never towards lower ones, where a
-downward walk has already been. The worst a mid-walk insertion can do is show
-one record twice, and the `(txid, added)` key absorbs that.
+Only records in a terminal state: `completed`, `completed_provisional` and
+`failed`. An `accelerating` record is still in flight and its status will
+change, and because the key is `(txid, added)` and loads only ever append, a
+record stored mid-flight would keep its stale status for good and never count
+as revenue however it actually ended up. Skipping it costs nothing: a later
+run reads it again, settled.
+
+`failed` records are stored but earn nothing. They are kept so the question
+"how many accelerations failed, and were their transactions mined anyway?"
+stays askable. `export_accelerations.py` filters to `completed*` for every
+revenue figure.
+
+--- why a partial walk is safe ----------------------------------------------
+
+Ordering. The list is sorted by `added` descending and `added` never changes,
+so a new acceleration can only push records towards higher page numbers --
+never towards lower ones, where a downward walk has already been. The worst a
+mid-walk insertion can do is show one record twice, and the `(txid, added)` key
+absorbs that. One transaction can also carry two real acceleration requests, a
+retry after a failure, which is why the key is not the txid alone.
 
 The list is append-only in practice, which is what lets a walk stop early at
 all. Re-fetching a year of it nine days after the first load returned all
@@ -63,15 +74,8 @@ half a page of new records moves every boundary by half a page, so page 5
 today is page 8 next week. Only `added` is stable enough to resume from.
 
 Pages are cached under `${CACHE_DIR}/accelerations/` for `--full` only, so an
-interrupted re-crawl resumes where it stopped. A top-up never reads the cache;
-seeing what the cache does not have is its whole job.
-
-Every run that loads also records the span it read into
-`${accel_dst}.acceleration_coverage`. The rows alone cannot say whether a month
-is finished -- a month half fetched and a quiet month look the same -- so
-`export_accelerations.py` reads that ledger to decide which months are whole
-enough to publish. A run cut short by `--max-pages` records only as far down as
-it actually reached.
+interrupted re-crawl resumes where it stopped. The other modes never read the
+cache; seeing what the cache does not have is their whole job.
 """
 
 import argparse
@@ -87,7 +91,6 @@ import requests
 import config
 
 API = "https://mempool.space/api/v1/services/accelerator/accelerations/history"
-STATS_API = "https://mempool.space/api/v1/services/accelerator/accelerations/stats"
 
 # The endpoint silently caps pageLength at 50; asking for more wastes nothing
 # but returns no more rows.
@@ -101,7 +104,9 @@ DEFAULT_SLEEP = 20.0
 
 HEADERS = {"User-Agent": "bitcoin-private-blockspace/1.0 (research)"}
 
-SATS = 100_000_000
+# A record in one of these states will not change again, so it is safe to
+# store under a key that is never updated. Anything else is still in flight.
+TERMINAL = ("completed", "failed")
 
 
 def cache_dir():
@@ -146,10 +151,89 @@ def get_json(url, params=None, sleep=DEFAULT_SLEEP, attempts=8):
     raise RuntimeError(f"{url}: gave up after {attempts} attempts")
 
 
-def fetch_stats(sleep):
-    _, data = get_json(STATS_API, sleep=sleep)
-    return data
+# --- small pure helpers --------------------------------------------------
 
+def utc(timestamp):
+    """A unix timestamp as a readable UTC minute."""
+    return time.strftime("%Y-%m-%d %H:%M", time.gmtime(timestamp))
+
+
+def iso(timestamp):
+    """A unix timestamp as the string BigQuery reads as a TIMESTAMP.
+
+    Sent instead of unix seconds so the column type is obvious from the
+    payload rather than implied by the loader.
+    """
+    return time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(timestamp))
+
+
+def parse_time(text):
+    """A date bound as a unix timestamp.
+
+    Accepts a date or a full timestamp, and reads both as UTC -- the same clock
+    the API's `added` field uses, so a bound means the same thing wherever the
+    script is run.
+    """
+    for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d"):
+        try:
+            return calendar.timegm(time.strptime(text, fmt))
+        except ValueError:
+            continue
+    raise SystemExit(f"cannot read {text!r} as a date")
+
+
+def key_of(record):
+    """The identity of an acceleration request.
+
+    Not the txid. One transaction can carry more than one request -- a retry
+    after a failure is the common case -- and both are real records. `added`
+    separates them, and because it never changes it also collapses a record
+    the API returned twice.
+    """
+    return record["txid"], record.get("added")
+
+
+def is_settled(record):
+    """True when this record's status will not change again.
+
+    Storing an in-flight record would freeze it. Loads only append, keyed on
+    `(txid, added)`, so the `accelerating` version already in the table is the
+    version that stays there, and it would never count as revenue however it
+    actually ended up. A later run reads it again once it has settled.
+    """
+    return (record.get("status") or "").startswith(TERMINAL)
+
+
+def page_is_old(batch, bound):
+    """True when no record on this page is newer than `bound`.
+
+    A record with no `added` counts as new, so an odd record is read again
+    rather than skipped.
+    """
+    return all(r.get("added") is not None and r["added"] <= bound
+               for r in batch)
+
+
+def collect(batch, records, seen, kept_keys=None):
+    """Keep the settled, unseen records from one page. Returns how many.
+
+    `kept_keys` collects the keys of everything read, settled or not, which is
+    what the top-up uses to notice it has reached records it already holds.
+    """
+    kept = 0
+    for record in batch:
+        key = key_of(record)
+        if kept_keys is not None:
+            kept_keys.add(key)
+        if not is_settled(record) or key in seen:
+            continue
+        seen.add(key)
+        records.append(record)
+        kept += 1
+    return kept
+
+
+# --- walking the list ----------------------------------------------------
 
 def history_size(page_length, sleep):
     """(records, pages) as the endpoint reports them right now.
@@ -168,233 +252,8 @@ def history_size(page_length, sleep):
     return total, pages
 
 
-def fetch_pages(sleep, page_length, max_pages, refresh):
-    """Walk the paginated history, caching each page to disk.
-
-    Pagination is newest-first, so records shift between pages while new
-    accelerations arrive and the same record can be read twice. The key is
-    `(txid, added)`, not txid: one transaction can carry more than one
-    acceleration request, and dropping the second would lose a real record.
-    A cached page is never refetched unless --refresh is given.
-    """
-    page_length = min(page_length, MAX_PAGE_LENGTH)
-    directory = cache_dir()
-    records = []
-    seen = set()
-    page = 1
-
-    total, expected_pages = history_size(page_length, sleep)
-    if total:
-        print(f"estimated wall time at {sleep}s per request: "
-              f"{expected_pages * sleep / 60:.0f} min")
-
-    while True:
-        if max_pages and page > max_pages:
-            print(f"stopping at --max-pages {max_pages}")
-            break
-
-        path = os.path.join(directory, f"page_{page:05d}.json")
-        if os.path.exists(path) and not refresh:
-            with open(path) as fh:
-                batch = json.load(fh)
-        else:
-            _, batch = get_json(API, {"page": page, "pageLength": page_length},
-                                sleep=sleep)
-            with open(path, "w") as fh:
-                json.dump(batch, fh)
-
-        if not batch:
-            print(f"page {page}: empty, history exhausted")
-            break
-
-        for record in batch:
-            key = (record["txid"], record.get("added"))
-            if key not in seen:
-                seen.add(key)
-                records.append(record)
-
-        if page % 20 == 0 or page == 1:
-            # A pending acceleration has no block yet; ignore those when
-            # reporting how far back the walk has reached.
-            mined = [r["blockHeight"] for r in batch if r.get("blockHeight")]
-            oldest = min(mined) if mined else "pending"
-            print(f"    page {page:>4d}  {len(records):>6d} records  "
-                  f"oldest height {oldest}")
-
-        if len(batch) < page_length:
-            print(f"page {page}: short page, history exhausted")
-            break
-        page += 1
-
-    complete = not (max_pages and page > max_pages)
-    print(f"fetched {len(records)} unique records over {page} pages")
-    if complete and total and len(records) < total * 0.95:
-        print(f"WARNING: expected about {total} records but hold {len(records)}. "
-              f"The history may have moved during the run; rerun to fill gaps.")
-    return records, complete
-
-
-def utc(timestamp):
-    """A unix timestamp as a readable UTC minute."""
-    return time.strftime("%Y-%m-%d %H:%M", time.gmtime(timestamp))
-
-
-def iso(timestamp):
-    """A unix timestamp as the string BigQuery reads as a TIMESTAMP.
-
-    Sent instead of unix seconds so the column type is obvious from the
-    payload rather than implied by the loader.
-    """
-    return time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(timestamp))
-
-
-def parse_time(text):
-    """A `--since`/`--until` bound as a unix timestamp.
-
-    Accepts a date or a full timestamp, and reads both as UTC -- the same clock
-    the API's `added` field uses, so a bound means the same thing wherever the
-    script is run.
-    """
-    for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d"):
-        try:
-            return calendar.timegm(time.strptime(text, fmt))
-        except ValueError:
-            continue
-    raise SystemExit(f"cannot read {text!r} as a date")
-
-
-def page_is_old(batch, watermark):
-    """True when no record on this page is newer than the watermark.
-
-    The stop test for a top-up. A record with no `added` counts as new, so an
-    odd record is read again rather than skipped.
-    """
-    return all(r.get("added") is not None and r["added"] <= watermark
-               for r in batch)
-
-
-def accel_table():
-    return f"{config.accel_dst()}.accelerations"
-
-
-def coverage_table():
-    return f"{config.accel_dst()}.acceleration_coverage"
-
-
-def watermark_from_bigquery():
-    """Newest `added` already loaded, as a unix timestamp, or None.
-
-    None means there is nothing to top up from -- no dataset, no table, or an
-    empty one -- and the caller falls back to a full crawl.
-    """
-    import bqio
-    from google.cloud.exceptions import NotFound
-    try:
-        bqio.client().get_table(accel_table())
-    except NotFound:
-        return None
-    result = bqio.rows(
-        f"SELECT UNIX_SECONDS(MAX(added)) AS newest FROM `{accel_table()}`")
-    return result[0]["newest"] if result else None
-
-
-def existing_keys():
-    """The `(txid, added)` pairs already in BigQuery.
-
-    A txid is not an identity. One transaction can carry more than one
-    acceleration request -- a retry after a failure is the common case -- and
-    both are real records. `added` separates them, and because it never
-    changes it also collapses a record the API returned twice.
-    """
-    import bqio
-    from google.cloud.exceptions import NotFound
-    try:
-        bqio.client().get_table(accel_table())
-    except NotFound:
-        return set()
-    return {(r["txid"], int(r["added"].timestamp()) if r["added"] else None)
-            for r in bqio.rows(f"SELECT txid, added FROM `{accel_table()}`")}
-
-
-def unloaded(records, have):
-    """The records not already in BigQuery, keyed on `(txid, added)`.
-
-    The watermark decides only where to stop *reading*. What to *keep* is
-    decided here, by key. Keeping the two apart is what makes an `added` equal
-    to the watermark safe: such a record is read (its page counts as old) and
-    then kept, because its key is not in `have`. A rule that filtered on
-    `added > watermark` instead would lose it, and two accelerations can share
-    a second.
-    """
-    return [r for r in records if (r["txid"], r.get("added")) not in have]
-
-
-def fetch_new(sleep, page_length, watermark, overlap):
-    """Walk from page 1 and stop once the walk is safely past the watermark.
-
-    Every record read is returned, watermark or not; the loader drops what
-    BigQuery already holds. Keeping them here makes the run's own summary
-    describe what it actually read.
-    """
-    page_length = min(page_length, MAX_PAGE_LENGTH)
-    records, seen = [], set()
-    old_pages, page = 0, 1
-
-    while True:
-        _, batch = get_json(API, {"page": page, "pageLength": page_length},
-                            sleep=sleep)
-        if not batch:
-            print(f"page {page}: empty, history exhausted")
-            break
-
-        for record in batch:
-            key = (record["txid"], record.get("added"))
-            if key not in seen:
-                seen.add(key)
-                records.append(record)
-
-        if page_is_old(batch, watermark):
-            old_pages += 1
-            if old_pages >= overlap:
-                print(f"page {page}: {overlap} consecutive pages at or before "
-                      f"the watermark, stopping")
-                break
-        else:
-            old_pages = 0
-
-        if len(batch) < page_length:
-            print(f"page {page}: short page, history exhausted")
-            break
-        page += 1
-
-    fresh = sum(1 for r in records
-                if r.get("added") is None or r["added"] > watermark)
-    print(f"read {page} pages, {len(records)} records, {fresh} newer than the "
-          f"watermark")
-    return records
-
-
-def in_window(record, since, until):
-    """True when this record belongs to the requested range.
-
-    Both bounds are inclusive. The lower one has to be, for the same reason the
-    top-up keeps a record sitting exactly on its watermark: `page_is_old` stops
-    the walk on a page whose newest record equals `since`, and two
-    accelerations can share a second, so a record on the bound is a real record
-    that nothing else would read.
-
-    A record with no `added` cannot be placed in time at all. It is kept rather
-    than dropped -- one loaded twice is absorbed by the `(txid, added)` key,
-    one dropped is gone.
-    """
-    added = record.get("added")
-    if added is None:
-        return True
-    return since <= added <= until
-
-
-def seek_page(until, page_length, pages, sleep):
-    """The first page whose newest record is at or before `until`.
+def seek_page(bound, page_length, pages, sleep):
+    """The first page whose newest record is at or before `bound`.
 
     Walking to a page far down the list costs one request per page passed. The
     list is sorted by `added` descending, so the page holding a given time can
@@ -417,48 +276,149 @@ def seek_page(until, page_length, pages, sleep):
         newest = batch[0].get("added") if batch else None
         print(f"    seek page {mid:>4d}  newest "
               f"{utc(newest) if newest else '-'}")
-        if newest is not None and newest > until:
+        if newest is not None and newest > bound:
             lo = mid + 1
         else:
             hi = mid
     return lo
 
 
-def fetch_range(sleep, page_length, since, until, overlap, max_pages):
-    """Read the records added between `since` and `until`.
+def fetch_full(sleep, page_length, max_pages, refresh):
+    """Crawl the whole history from page 1 to the end.
 
-    The walk is the top-up's walk with two changes: it enters partway down the
-    list instead of at page 1, and it keeps only what falls inside the window.
-    `since` plays exactly the part the watermark plays -- it stops the reading
-    -- while `in_window` decides the keeping, because a page can straddle
-    either bound.
+    This is the only mode that builds the run from nothing, so it is also the
+    wipe-and-reload: the caller replaces the table with what comes back. A
+    crawl cut short still returns a contiguous run from the newest record
+    downwards, just a shorter one, so replacing the table with it stays safe.
 
-    Returns the records and whether the walk reached the far end of the range.
-    A walk cut short by `--max-pages` holds a contiguous span ending at
-    `until`, but not the whole range, and the coverage ledger has to know the
-    difference.
+    A cached page is never refetched unless --refresh is given, which is what
+    lets an interrupted crawl resume instead of starting over.
+    """
+    page_length = min(page_length, MAX_PAGE_LENGTH)
+    directory = cache_dir()
+    records, seen = [], set()
+    page, read = 1, 0
 
-    `--max-pages` counts walked pages only. The seek requests are not walking
-    and there are about ten of them however long the range is.
+    total, pages = history_size(page_length, sleep)
+    if total:
+        print(f"estimated wall time at {sleep}s per request: "
+              f"{pages * sleep / 60:.0f} min")
+
+    while True:
+        if max_pages and page > max_pages:
+            print(f"stopping at --max-pages {max_pages}")
+            break
+
+        path = os.path.join(directory, f"page_{page:05d}.json")
+        if os.path.exists(path) and not refresh:
+            with open(path) as fh:
+                batch = json.load(fh)
+        else:
+            _, batch = get_json(API, {"page": page, "pageLength": page_length},
+                                sleep=sleep)
+            with open(path, "w") as fh:
+                json.dump(batch, fh)
+
+        if not batch:
+            print(f"page {page}: empty, history exhausted")
+            break
+        read += len(batch)
+        collect(batch, records, seen)
+
+        if page % 20 == 0 or page == 1:
+            oldest = min((r["added"] for r in batch if r.get("added")),
+                         default=None)
+            print(f"    page {page:>4d}  {len(records):>6d} settled  "
+                  f"oldest {utc(oldest) if oldest else 'pending'}")
+
+        if len(batch) < page_length:
+            print(f"page {page}: short page, history exhausted")
+            break
+        page += 1
+
+    print(f"read {page} pages, {read} records, kept {len(records)} settled")
+    return records
+
+
+def fetch_top_up(sleep, page_length, have, overlap):
+    """Walk from page 1 until the walk touches records already held.
+
+    The stop rule is the invariant. Reading down until a record we already have
+    turns up is what proves the new records sit directly on top of the existing
+    run with nothing missing in between; stopping on a timestamp alone would
+    only prove we had gone far enough back in time, which is not the same
+    thing. `overlap` more pages are read after the first touch, so a record
+    that shifted pages mid-walk is still seen.
+
+    Everything read is returned. The loader drops what is already there.
+    """
+    page_length = min(page_length, MAX_PAGE_LENGTH)
+    records, seen = [], set()
+    page, read = 1, 0
+    touched, pages_since_touch = False, 0
+
+    while True:
+        _, batch = get_json(API, {"page": page, "pageLength": page_length},
+                            sleep=sleep)
+        if not batch:
+            print(f"page {page}: empty, history exhausted")
+            break
+        read += len(batch)
+
+        keys = set()
+        collect(batch, records, seen, keys)
+        if keys & have:
+            if not touched:
+                print(f"page {page}: reached records already held")
+            touched = True
+
+        if touched:
+            pages_since_touch += 1
+            if pages_since_touch > overlap:
+                break
+        if len(batch) < page_length:
+            print(f"page {page}: short page, history exhausted")
+            break
+        page += 1
+
+    if not touched:
+        raise SystemExit(
+            f"read {page} pages without reaching any record already held.\n"
+            f"Stopping rather than loading them: they would sit above a gap "
+            f"and the run would no longer be contiguous.\n"
+            f"Run --full to rebuild, or raise --overlap if this was a very "
+            f"long absence.")
+    print(f"read {page} pages, {read} records, kept {len(records)} settled")
+    return records
+
+
+def fetch_back_to(sleep, page_length, oldest_held, target, overlap, max_pages):
+    """Extend the run downwards from `oldest_held` to `target`.
+
+    Anchored to the oldest record already held, not to a free-floating date,
+    so what comes back joins the bottom of the run instead of forming an
+    island. The seek jumps to that anchor -- about 10 requests instead of the
+    hundreds of pages it would take to walk there -- and then the walk goes
+    down from `overlap` pages above it, which is what makes the join overlap
+    rather than merely meet.
     """
     page_length = min(page_length, MAX_PAGE_LENGTH)
     _, pages = history_size(page_length, sleep)
 
     page = 1
     if pages:
-        page = max(1, seek_page(until, page_length, pages, sleep) - overlap)
+        page = max(1, seek_page(oldest_held, page_length, pages, sleep)
+                   - overlap)
         remaining = pages - page + 1
         print(f"entering at page {page} of {pages}: at most {remaining} pages "
               f"to walk, {remaining * sleep / 60:.0f} min at {sleep}s each")
 
     records, seen = [], set()
     read, old_pages, walked = 0, 0, 0
-    complete = True
 
     while True:
         if max_pages and walked >= max_pages:
             print(f"stopping at --max-pages {max_pages}")
-            complete = False
             break
 
         _, batch = get_json(API, {"page": page, "pageLength": page_length},
@@ -468,26 +428,19 @@ def fetch_range(sleep, page_length, since, until, overlap, max_pages):
             print(f"page {page}: empty, history exhausted")
             break
         read += len(batch)
-
-        for record in batch:
-            if not in_window(record, since, until):
-                continue
-            key = (record["txid"], record.get("added"))
-            if key not in seen:
-                seen.add(key)
-                records.append(record)
+        collect(batch, records, seen)
 
         if walked == 1 or walked % 20 == 0:
             oldest = min((r["added"] for r in batch if r.get("added")),
                          default=None)
-            print(f"    page {page:>4d}  {len(records):>6d} in range  "
+            print(f"    page {page:>4d}  {len(records):>6d} settled  "
                   f"oldest {utc(oldest) if oldest else 'pending'}")
 
-        if page_is_old(batch, since):
+        if page_is_old(batch, target):
             old_pages += 1
             if old_pages >= overlap:
                 print(f"page {page}: {overlap} consecutive pages at or before "
-                      f"{utc(since)}, stopping")
+                      f"{utc(target)}, stopping")
                 break
         else:
             old_pages = 0
@@ -498,25 +451,59 @@ def fetch_range(sleep, page_length, since, until, overlap, max_pages):
         page += 1
 
     print(f"walked {walked} pages, read {read} records, "
-          f"kept {len(records)} in range")
-    return records, complete
+          f"kept {len(records)} settled")
+    return records
 
 
-def covered_window(records, since, until, complete):
-    """The span this run can honestly claim to have read, or None.
+# --- BigQuery ------------------------------------------------------------
 
-    A walk always goes downwards from `until`, so whatever it holds is a
-    contiguous span ending there. When it reached the far end it covers the
-    whole of `[since, until]`. When `--max-pages` cut it short it covers only
-    down to the oldest record it kept -- claiming the rest would let a half
-    read month be published later as a finished one.
+def accel_table():
+    return f"{config.accel_dst()}.accelerations"
+
+
+def table_missing():
+    from google.cloud.exceptions import NotFound
+    import bqio
+    try:
+        bqio.client().get_table(accel_table())
+        return False
+    except NotFound:
+        return True
+
+
+def run_bounds():
+    """(oldest, newest) `added` already loaded, as unix seconds, or (None, None).
+
+    The two ends of the contiguous run. Everything between them has been read,
+    which is the fact the whole design rests on.
     """
-    if complete:
-        return since, until
-    added = [r["added"] for r in records if r.get("added")]
-    if not added:
-        return None
-    return min(added), until
+    import bqio
+    if table_missing():
+        return None, None
+    result = bqio.rows(
+        f"SELECT UNIX_SECONDS(MIN(added)) AS oldest, "
+        f"UNIX_SECONDS(MAX(added)) AS newest FROM `{accel_table()}`")
+    if not result or result[0]["oldest"] is None:
+        return None, None
+    return result[0]["oldest"], result[0]["newest"]
+
+
+def existing_keys():
+    """Every `(txid, added)` pair already in BigQuery.
+
+    Used twice: to notice when a top-up has touched the existing run, and to
+    decide what is genuinely new to append.
+    """
+    import bqio
+    if table_missing():
+        return set()
+    return {(r["txid"], int(r["added"].timestamp()) if r["added"] else None)
+            for r in bqio.rows(f"SELECT txid, added FROM `{accel_table()}`")}
+
+
+def unloaded(records, have):
+    """The records not already in BigQuery, keyed on `(txid, added)`."""
+    return [r for r in records if key_of(r) not in have]
 
 
 def normalise(record):
@@ -564,56 +551,13 @@ def schema():
     ]
 
 
-def coverage_schema():
-    from google.cloud import bigquery as bq
-    field = bq.SchemaField
-    return [
-        field("since", "TIMESTAMP", mode="REQUIRED"),
-        field("until", "TIMESTAMP", mode="REQUIRED"),
-        field("fetched_at", "TIMESTAMP", mode="REQUIRED"),
-        field("mode", "STRING"),
-        field("records", "INT64"),
-    ]
-
-
-def record_coverage(since, until, mode, n_records):
-    """Append the span this run read to `${accel_dst}.acceleration_coverage`.
-
-    The accelerations table cannot answer "is this month finished?" on its
-    own. A month half fetched holds fewer records than a month fully fetched,
-    and so does a genuinely quiet month -- nothing in the rows tells the two
-    apart. This ledger is the difference. It is what lets the export publish a
-    month only once some run has actually read all of it, instead of guessing
-    from row counts.
-
-    Rows are only ever appended, and overlapping spans are expected: the
-    export merges them. A run that loaded nothing still records its span,
-    because reading a stretch and finding it empty is also knowledge.
-    """
-    from google.cloud import bigquery as bq
-
-    import bqio
-
-    row = {"since": iso(since), "until": iso(until),
-           "fetched_at": iso(time.time()), "mode": mode,
-           "records": n_records}
-    job = bqio.client().load_table_from_json(
-        [row], coverage_table(),
-        job_config=bq.LoadJobConfig(schema=coverage_schema(),
-                                    write_disposition="WRITE_APPEND"),
-    )
-    job.result()
-    print(f"coverage: {utc(since)} to {utc(until)} UTC recorded as read "
-          f"({mode})")
-
-
-def load_to_bigquery(records, table="accelerations", append=False):
+def load_to_bigquery(records, append):
     """Write records to `${accel_dst}.accelerations`.
 
-    Only a crawl that reached the end of the history replaces the table --
-    about 30k rows, a few MB of storage. Every partial fetch appends what is
-    not there yet, keyed on `(txid, added)`, so a top-up, a range, or a run cut
-    short can never shrink what is already loaded.
+    A `--full` crawl replaces the table -- about 30k rows, a few MB of storage
+    -- because what it returns is the whole run. Every other mode extends the
+    run and therefore appends only what is missing, keyed on `(txid, added)`,
+    so a short or interrupted fetch can never shrink what is already loaded.
     """
     from google.cloud import bigquery as bq
 
@@ -629,113 +573,19 @@ def load_to_bigquery(records, table="accelerations", append=False):
             return
     rows = [normalise(r) for r in records]
     for row in rows:
-        for key in ("added", "last_updated"):
-            if row[key]:
-                row[key] = iso(row[key])
+        for field in ("added", "last_updated"):
+            if row[field]:
+                row[field] = iso(row[field])
 
-    target = f"{config.accel_dst()}.{table}"
     disposition = "WRITE_APPEND" if append else "WRITE_TRUNCATE"
     job = bqio.client().load_table_from_json(
-        rows, target,
+        rows, accel_table(),
         job_config=bq.LoadJobConfig(schema=schema(),
                                     write_disposition=disposition),
     )
     job.result()
     verb = "appended" if append else "loaded"
-    print(f"{verb} {len(rows)} rows into {target}")
-
-
-def monthly_table(paid):
-    """Out-of-band spend per calendar month.
-
-    Grouped on `added`, the time the acceleration was requested. A request is
-    mined within minutes, so the month is the same either way, and `added` is
-    present on every record while a block timestamp is not.
-    """
-    months = {}
-    for record in paid:
-        if not record.get("added"):
-            continue
-        month = time.strftime("%Y-%m", time.gmtime(record["added"]))
-        bucket = months.setdefault(month, {"n": 0, "delta": 0, "vsize": 0,
-                                           "onchain": 0})
-        bucket["n"] += 1
-        bucket["delta"] += record.get("feeDelta") or 0
-        bucket["vsize"] += record.get("effectiveVsize") or 0
-        bucket["onchain"] += record.get("effectiveFee") or 0
-
-    print("\n=== out-of-band spend by month ===")
-    print(f"{'month':<9}{'accels':>8}{'feeDelta sats':>16}{'BTC':>10}"
-          f"{'vB':>12}{'off-chain':>11}{'on-chain':>10}")
-    for month in sorted(months):
-        b = months[month]
-        off_rate = b["delta"] / b["vsize"] if b["vsize"] else 0
-        on_rate = b["onchain"] / b["vsize"] if b["vsize"] else 0
-        print(f"{month:<9}{b['n']:>8,d}{b['delta']:>16,d}"
-              f"{b['delta'] / SATS:>10.4f}{b['vsize']:>12,d}"
-              f"{off_rate:>10.1f}{on_rate:>10.1f}")
-    return months
-
-
-def summarise(records, stats, scope=None):
-    """Answer the question the records can answer, in sats and BTC.
-
-    Only mined, uncancelled accelerations count: a failed or cancelled request
-    moved no money. `scope` is None when the run read the whole history and
-    the totals are therefore the real totals. Otherwise it names the slice --
-    a top-up, a range, a run cut short by `--max-pages` -- and the totals are
-    a sample that carries no claim about anything outside it.
-    """
-    paid = [r for r in records
-            if not r.get("canceled")
-            and (r.get("status") or "").startswith("completed")
-            and r.get("blockHeight")]
-
-    fee_delta = sum(r.get("feeDelta") or 0 for r in paid)
-    bid_boost = sum(r.get("bidBoost") or 0 for r in paid)
-    vsize = sum(r.get("effectiveVsize") or 0 for r in paid)
-    onchain = sum(r.get("effectiveFee") or 0 for r in paid)
-
-    header = "out-of-band fees collected"
-    if scope:
-        header += f" -- PARTIAL FETCH, {scope}"
-    print(f"\n=== {header} ===")
-    print(f"accelerations mined        {len(paid):>14,d} of {len(records):,d} records")
-    print(f"sum(feeDelta)              {fee_delta:>14,d} sats   "
-          f"{fee_delta / SATS:.4f} BTC")
-    print(f"sum(bidBoost)              {bid_boost:>14,d} sats   "
-          f"{bid_boost / SATS:.4f} BTC")
-    print(f"sum(effectiveFee) on-chain {onchain:>14,d} sats   "
-          f"{onchain / SATS:.4f} BTC")
-    print(f"sum(effectiveVsize)        {vsize:>14,d} vB")
-    if vsize:
-        print(f"off-chain rate paid        {fee_delta / vsize:>14.1f} sat/vB "
-              f"(on-chain {onchain / vsize:.1f})")
-
-    if stats:
-        print("\n--- against the published stats endpoint ---")
-        print(f"totalRequested {stats.get('totalRequested'):>12,d}   "
-              f"totalCompleted {stats.get('totalCompleted'):>12,d}")
-        published = stats.get("totalBidBoost") or 0
-        print(f"totalBidBoost  {published:>12,d} sats = {published / SATS:.4f} BTC")
-        for name, value in (("feeDelta", fee_delta), ("bidBoost", bid_boost)):
-            if published and abs(value - published) / published < 0.02:
-                print(f"  -> published total matches sum({name}) within 2%")
-        print(f"totalVsize     {stats.get('totalVsize'):>12,d} vB")
-
-    if paid:
-        heights = [r["blockHeight"] for r in paid]
-        print(f"\nblock height range         {min(heights):,d} to {max(heights):,d}")
-        first = min(r["added"] for r in paid if r.get("added"))
-        print(f"earliest acceleration      "
-              f"{time.strftime('%Y-%m-%d', time.gmtime(first))}")
-        if scope is None:
-            print("The history starts there because the service did not run "
-                  "earlier, so it says nothing about the window before it.")
-        else:
-            print(f"This is {scope} -- not the start of the history. The "
-                  f"table holds whatever earlier runs put there.")
-        monthly_table(paid)
+    print(f"{verb} {len(rows)} rows into {accel_table()}")
 
 
 def main():
@@ -753,88 +603,59 @@ def main():
     parser.add_argument("--no-load", action="store_true",
                         help="skip the BigQuery load")
     parser.add_argument("--full", action="store_true",
-                        help="re-crawl the whole history and replace the table")
-    parser.add_argument("--since", metavar="YYYY-MM-DD",
-                        help="top up from this time instead of the newest "
-                             "record already in BigQuery; with --until, the "
-                             "start of the range")
-    parser.add_argument("--until", metavar="YYYY-MM-DD",
-                        help="fetch the range ending here instead of topping "
-                             "up; without --since the range opens at the start "
-                             "of the history")
+                        help="crawl the whole history and replace the table")
+    parser.add_argument("--back-to", metavar="YYYY-MM-DD",
+                        help="extend the run further back, down to this date")
     parser.add_argument("--overlap", type=int, default=2, metavar="N",
-                        help="pages to read past the watermark (default 2)")
+                        help="pages to read past the join (default 2)")
+    parser.add_argument("--yes", action="store_true",
+                        help="do not ask before replacing the table")
     args = parser.parse_args()
 
-    since = parse_time(args.since) if args.since else None
-    until = parse_time(args.until) if args.until else None
-    if args.full and (since is not None or until is not None):
-        raise SystemExit("--full reads the whole history; drop --since/--until")
-    if since is not None and until is not None and until <= since:
-        raise SystemExit("--until must be later than --since")
+    if args.full and args.back_to:
+        raise SystemExit("--full already reads everything; drop --back-to")
 
-    stats = fetch_stats(args.sleep)
+    target = parse_time(args.back_to) if args.back_to else None
+    oldest, newest = (None, None) if args.full else run_bounds()
 
-    # Every walk reads page 1 at the start of the run, so the newest moment a
-    # run can claim to have seen is when it began, not when it ended. A
-    # four hour crawl would otherwise claim the records that arrived while it
-    # was running.
-    started = int(time.time())
+    if oldest is None and not args.full:
+        print("nothing loaded yet -- crawling the whole history")
+        args.full = True
 
-    if until is not None:
-        # A range. It is a slice of the history, so it is appended, never
-        # written over the top of what other runs already loaded.
-        since = since or 0
-        print(f"fetching {utc(since)} to {utc(until)} UTC")
-        records, complete = fetch_range(args.sleep, args.page_length, since,
-                                        until, args.overlap, args.max_pages)
-        scope, append, mode = f"{utc(since)} to {utc(until)} UTC", True, "range"
-        covered = covered_window(records, since, min(until, started), complete)
+    if args.full:
+        if args.max_pages and not args.yes and not args.no_load:
+            print(f"--full replaces the table, and --max-pages {args.max_pages} "
+                  f"means it would be replaced with a fragment.")
+            import bqio
+            if not bqio.confirm("Continue?"):
+                return 1
+        records = fetch_full(args.sleep, args.page_length, args.max_pages,
+                             args.refresh)
+        append = False
+    elif target is not None:
+        if target >= oldest:
+            print(f"already hold records back to {utc(oldest)} UTC; "
+                  f"--back-to {args.back_to} asks for nothing new")
+            return 0
+        print(f"extending the run from {utc(oldest)} back to {utc(target)} UTC")
+        records = fetch_back_to(args.sleep, args.page_length, oldest, target,
+                                args.overlap, args.max_pages)
+        append = True
     else:
-        watermark = since if since is not None else None
-        if watermark is None and not args.full:
-            watermark = watermark_from_bigquery()
-            if watermark is None:
-                print("nothing loaded yet -- crawling the whole history")
-
-        if watermark is None:
-            records, complete = fetch_pages(args.sleep, args.page_length,
-                                            args.max_pages, args.refresh)
-            scope = None if complete else "the newest records only"
-            # A crawl stopped by --max-pages holds a fragment. Replacing the
-            # table with it would throw away every record below the cut, so a
-            # fragment appends like any other partial fetch.
-            append, mode = not complete, "full"
-            # A complete crawl reaches the start of the history, whenever that
-            # was, so its span opens at the epoch.
-            covered = covered_window(records, 0, started, complete)
-        else:
-            print(f"topping up from {utc(watermark)} UTC")
-            records = fetch_new(args.sleep, args.page_length, watermark,
-                                args.overlap)
-            scope, append, mode = "the newest records only", True, "topup"
-            # A top-up stops itself; it always reaches its own watermark.
-            covered = (watermark, started)
+        print(f"topping up; the run currently ends at {utc(newest)} UTC")
+        records = fetch_top_up(args.sleep, args.page_length, existing_keys(),
+                               args.overlap)
+        append = True
 
     if not records:
-        print("no records fetched")
-        return 1
-
-    # `all.json` is the on-disk copy of the whole history. A top-up holds only
-    # the newest slice, so writing it there would replace the history with a
-    # fragment.
-    if not append:
-        with open(os.path.join(cache_dir(), "all.json"), "w") as fh:
-            json.dump(records, fh)
-
-    summarise(records, stats, scope)
+        print("no settled records fetched")
+        return 0 if append else 1
 
     if not args.no_load:
         load_to_bigquery(records, append=append)
-        # Recorded only after the load succeeds. A span claimed for rows that
-        # never landed would let the export publish a month that is not there.
-        if covered:
-            record_coverage(covered[0], covered[1], mode, len(records))
+        lo, hi = run_bounds()
+        if lo is not None:
+            print(f"the run now spans {utc(lo)} to {utc(hi)} UTC")
     return 0
 
 
