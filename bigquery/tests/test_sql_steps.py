@@ -137,8 +137,8 @@ def test_full_block_denominator_requires_a_floor(name):
 def test_full_block_denominator_excludes_nonrelayable(name):
     """Non-relayable space must stay out of every denominator too.
 
-    Step 06b never flags a non-relayable transaction, so those vbytes can only
-    ever sit below the line. Leaving them there measures flagged relayable
+    Step 06b never marks a non-relayable transaction low-fee, so those vbytes
+    can only ever sit below the line. Leaving them there measures low-fee relayable
     space against space that was never in the auction, and quietly deflates
     the share by however much non-relayable traffic the month happened to
     carry.

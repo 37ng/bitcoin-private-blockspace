@@ -96,7 +96,7 @@ BLOCK_WEIGHT_FULL = 3_900_000
 # ...and it counts as full only when demand was sustained around it.
 FULL_NEIGHBOURS_REQUIRED = 4  # of the 6 neighbours
 
-# --- Low-fee flag sensitivity --------------------------------------------
+# --- Low-fee sensitivity --------------------------------------------------
 
 SENSITIVITIES = (0.3, 0.5, 0.7)
 FULLNESS_GRID = (3_850_000, 3_900_000, 3_950_000)
@@ -104,7 +104,7 @@ FULLNESS_GRID = (3_850_000, 3_900_000, 3_950_000)
 PRIMARY_SENSITIVITY = 0.5  # headline number; always report the grid with it
 
 # --- Revenue bands -------------------------------------------------------
-# The two bounds on what flagged space was worth. See `07_revenue_bands.sql`
+# The two bounds on what low-fee space was worth. See `07_revenue_bands.sql`
 # for what each band means. They live here because step 07 and step 07c both
 # compute them, and a formula written twice is a formula that drifts.
 #
@@ -113,12 +113,12 @@ LOWER_BAND_SATS = ("GREATEST(b.floor_fee_rate - t.effective_fee_rate, 0)"
                    " * t.virtual_size")
 UPPER_BAND_SATS = "b.median_fee_rate * t.virtual_size"
 
-# A full block with no floor can hold no flagged transaction, so it belongs in
+# A full block with no floor can hold no low-fee transaction, so it belongs in
 # no denominator. `is_full` is set from weight and neighbour count alone and
 # does not imply a floor, so every share must test for both.
 FULL_AND_PRICED = "b.is_full AND b.floor_fee_rate IS NOT NULL"
 
-# The space every share is measured against. The low-fee flag never fires on
+# The space every share is measured against. The low-fee test never fires on
 # non-relayable traffic (step 06b): it never entered the public auction, so its
 # price says nothing about a discount. Space that can never reach the numerator
 # would only deflate the share, so it stays out of the denominator too. Step 08

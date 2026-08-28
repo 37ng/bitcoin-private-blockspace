@@ -10,15 +10,15 @@ local tables.
 ```
 01_tx_base       one pass over crypto_bitcoin.transactions
 02_blocks        block -> mining pool, plus an empty floor_fee_rate column
-03_txs           in-block CPFP edges, and the four non-relayable flags
+03_txs           in-block CPFP edges, and the four non-relayable reasons
 04a_in_package   the subset that union-find has to look at
 04b union-find   Python: packages priced as sum(fee) / sum(vbytes)
 04c_update       package rates written back onto txs
 05_block_floor   p05 of the effective rates in each block
 05b_update       floor = median of the p05 of b-3..b-1, b+1..b+3
 06a_fullness     which blocks were full, and had full neighbours
-06b_flag_low_fee low-fee flag at 0.3 / 0.5 / 0.7 of the floor
-07_revenue       the two value bands per flagged transaction
+06b_low_fee      low-fee test at 0.3 / 0.5 / 0.7 of the floor
+07_revenue       the two value bands per low-fee transaction
 07b_monthly      the monthly answer
 07c_pool         the same answer per pool
 08_sensitivity   the 3x3 threshold grid
@@ -38,14 +38,14 @@ gift. This is the one step that leaves SQL — `unionfind.py` and
 is the median of the p05 effective rate of b-3, b-2, b-1, b+1, b+2, b+3. A pool
 that stuffs its own block with cheap transactions drags down its own p05; it
 cannot drag down its neighbours'. All six neighbours must have a value or the
-floor is NULL and the block takes no part in the flagging.
+floor is NULL and the block takes no part in the low-fee test.
 
 **Non-relayable traffic is excluded, not counted.** A transaction that a
 default node of its day would refuse to relay never entered the public auction
 at all, so its low price is explained by policy, not by a private deal. Four
 tests, each against the rules in force on the day of the block:
 
-| flag | rule |
+| reason | rule |
 |---|---|
 | bare multisig | more than 3 pubkeys |
 | OP_RETURN | scriptPubKey over 83 bytes before 2025-10-08 (Core v30), over 100,000 after |
@@ -56,7 +56,7 @@ The fee-rate test carries one carve-out: a sub-minimum parent with a paying
 child in the same block is ordinary CPFP, not a private deal, and after Core 28
 (2024-10-04) 1p1c package relay propagates it publicly. Only a sub-minimum
 transaction with no paying in-block child is unambiguously non-relayable, so
-that is what `flag_sub_minrelay` records.
+that is what `nonrelay_sub_minrelay` records.
 
 **A discount only counts where space was scarce.** In a block with room to
 spare, a cheap transaction costs nobody anything. A block counts as full at
@@ -160,9 +160,9 @@ against a public hashrate chart. If a share is off by more than about 2 points,
 attribution is broken and every per-pool number is worthless. It also lists the
 coinbase text of unattributed blocks, which is how a missing tag is found.
 
-`validate_against_mempool.py` samples flagged blocks and compares them against
+`validate_against_mempool.py` samples low-fee blocks and compares them against
 mempool.space block audits. `addedTxs` is a presence measure and the low-fee
-flag is a price measure, so partial overlap is the expected result.
+test is a price measure, so partial overlap is the expected result.
 Transactions that
 appear in `acceleratedTxs` were bought out of band through a public service:
 they confirm the mechanism, and they are the part of the count that was never
