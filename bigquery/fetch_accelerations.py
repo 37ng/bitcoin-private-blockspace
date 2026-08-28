@@ -21,14 +21,41 @@ cannot be trusted as "the total paid" without checking which field it
 actually sums. This script totals both and prints the comparison, so the
 answer rests on the records rather than on a field name.
 
-    python fetch_accelerations.py              # fetch, load, summarise
+    python fetch_accelerations.py              # top up: read only what is new
+    python fetch_accelerations.py --full       # re-crawl the whole history
     python fetch_accelerations.py --no-load    # fetch and summarise only
 
-Pages are cached under `${CACHE_DIR}/accelerations/`, so an interrupted run
-resumes where it stopped and a rerun costs no requests.
+A top-up is the normal run. The history endpoint is newest-first and takes no
+`since` parameter, so a top-up walks from page 1 and stops once it has read
+`--overlap` consecutive pages lying entirely at or before the watermark. The
+watermark defaults to `MAX(added)` already in BigQuery.
+
+The watermark is a comparison, never a lookup. Nothing has to still exist at
+that timestamp for the walk to resume correctly -- `added > watermark` selects
+the records that follow it, not the one it came from.
+
+Ordering is what makes a partial walk safe. The list is sorted by `added`
+descending and `added` never changes, so a new acceleration can only push
+records towards higher page numbers -- never towards lower ones, where a
+downward walk has already been. The worst a mid-walk insertion can do is show
+one record twice, and the `(txid, added)` key absorbs that.
+
+The list is append-only in practice, which is what lets a walk stop early at
+all. Re-fetching a year of it nine days after the first load returned all
+8,265 records with no field changed and none missing, and `x-total-count` has
+only ever risen.
+
+A page number is not a bookmark. Pages are a window onto that shifting list:
+half a page of new records moves every boundary by half a page, so page 5
+today is page 8 next week. Only `added` is stable enough to resume from.
+
+Pages are cached under `${CACHE_DIR}/accelerations/` for `--full` only, so an
+interrupted re-crawl resumes where it stopped. A top-up never reads the cache;
+seeing what the cache does not have is its whole job.
 """
 
 import argparse
+import calendar
 import json
 import os
 import random
@@ -46,6 +73,12 @@ STATS_API = "https://mempool.space/api/v1/services/accelerator/accelerations/sta
 # but returns no more rows.
 MAX_PAGE_LENGTH = 50
 
+# Seconds between requests: 3 a minute. The API publishes no rate limit, so
+# the pace is a choice rather than a measurement, and at 1s it pushed back
+# constantly -- the backoff, not the sleep, ended up setting the real rate.
+# Asking slowly costs a top-up nothing: it reads a page or two either way.
+DEFAULT_SLEEP = 20.0
+
 HEADERS = {"User-Agent": "bitcoin-private-blockspace/1.0 (research)"}
 
 SATS = 100_000_000
@@ -57,7 +90,7 @@ def cache_dir():
     return path
 
 
-def get_json(url, params=None, sleep=1.0, attempts=8):
+def get_json(url, params=None, sleep=DEFAULT_SLEEP, attempts=8):
     """One GET with polite backoff.
 
     The public API publishes no rate-limit headers, so the client sets its own
@@ -102,8 +135,10 @@ def fetch_pages(sleep, page_length, max_pages, refresh):
     """Walk the paginated history, caching each page to disk.
 
     Pagination is newest-first, so records shift between pages while new
-    accelerations arrive. Callers deduplicate by txid; a cached page is never
-    refetched unless --refresh is given.
+    accelerations arrive and the same record can be read twice. The key is
+    `(txid, added)`, not txid: one transaction can carry more than one
+    acceleration request, and dropping the second would lose a real record.
+    A cached page is never refetched unless --refresh is given.
     """
     page_length = min(page_length, MAX_PAGE_LENGTH)
     directory = cache_dir()
@@ -139,9 +174,11 @@ def fetch_pages(sleep, page_length, max_pages, refresh):
             print(f"page {page}: empty, history exhausted")
             break
 
-        new = [r for r in batch if r["txid"] not in seen]
-        seen.update(r["txid"] for r in batch)
-        records.extend(new)
+        for record in batch:
+            key = (record["txid"], record.get("added"))
+            if key not in seen:
+                seen.add(key)
+                records.append(record)
 
         if page % 20 == 0 or page == 1:
             # A pending acceleration has no block yet; ignore those when
@@ -162,6 +199,128 @@ def fetch_pages(sleep, page_length, max_pages, refresh):
         print(f"WARNING: expected about {total} records but hold {len(records)}. "
               f"The history may have moved during the run; rerun to fill gaps.")
     return records, complete
+
+
+def utc(timestamp):
+    """A unix timestamp as a readable UTC minute."""
+    return time.strftime("%Y-%m-%d %H:%M", time.gmtime(timestamp))
+
+
+def parse_since(text):
+    """`--since` as a unix timestamp. Accepts a date or a full timestamp."""
+    for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d"):
+        try:
+            return calendar.timegm(time.strptime(text, fmt))
+        except ValueError:
+            continue
+    raise SystemExit(f"--since: cannot read {text!r} as a date")
+
+
+def page_is_old(batch, watermark):
+    """True when no record on this page is newer than the watermark.
+
+    The stop test for a top-up. A record with no `added` counts as new, so an
+    odd record is read again rather than skipped.
+    """
+    return all(r.get("added") is not None and r["added"] <= watermark
+               for r in batch)
+
+
+def accel_table():
+    return f"{config.accel_dst()}.accelerations"
+
+
+def watermark_from_bigquery():
+    """Newest `added` already loaded, as a unix timestamp, or None.
+
+    None means there is nothing to top up from -- no dataset, no table, or an
+    empty one -- and the caller falls back to a full crawl.
+    """
+    import bqio
+    from google.cloud.exceptions import NotFound
+    try:
+        bqio.client().get_table(accel_table())
+    except NotFound:
+        return None
+    result = bqio.rows(
+        f"SELECT UNIX_SECONDS(MAX(added)) AS newest FROM `{accel_table()}`")
+    return result[0]["newest"] if result else None
+
+
+def existing_keys():
+    """The `(txid, added)` pairs already in BigQuery.
+
+    A txid is not an identity. One transaction can carry more than one
+    acceleration request -- a retry after a failure is the common case -- and
+    both are real records. `added` separates them, and because it never
+    changes it also collapses a record the API returned twice.
+    """
+    import bqio
+    from google.cloud.exceptions import NotFound
+    try:
+        bqio.client().get_table(accel_table())
+    except NotFound:
+        return set()
+    return {(r["txid"], int(r["added"].timestamp()) if r["added"] else None)
+            for r in bqio.rows(f"SELECT txid, added FROM `{accel_table()}`")}
+
+
+def unloaded(records, have):
+    """The records not already in BigQuery, keyed on `(txid, added)`.
+
+    The watermark decides only where to stop *reading*. What to *keep* is
+    decided here, by key. Keeping the two apart is what makes an `added` equal
+    to the watermark safe: such a record is read (its page counts as old) and
+    then kept, because its key is not in `have`. A rule that filtered on
+    `added > watermark` instead would lose it, and two accelerations can share
+    a second.
+    """
+    return [r for r in records if (r["txid"], r.get("added")) not in have]
+
+
+def fetch_new(sleep, page_length, watermark, overlap):
+    """Walk from page 1 and stop once the walk is safely past the watermark.
+
+    Every record read is returned, watermark or not; the loader drops what
+    BigQuery already holds. Keeping them here makes the run's own summary
+    describe what it actually read.
+    """
+    page_length = min(page_length, MAX_PAGE_LENGTH)
+    records, seen = [], set()
+    old_pages, page = 0, 1
+
+    while True:
+        _, batch = get_json(API, {"page": page, "pageLength": page_length},
+                            sleep=sleep)
+        if not batch:
+            print(f"page {page}: empty, history exhausted")
+            break
+
+        for record in batch:
+            key = (record["txid"], record.get("added"))
+            if key not in seen:
+                seen.add(key)
+                records.append(record)
+
+        if page_is_old(batch, watermark):
+            old_pages += 1
+            if old_pages >= overlap:
+                print(f"page {page}: {overlap} consecutive pages at or before "
+                      f"the watermark, stopping")
+                break
+        else:
+            old_pages = 0
+
+        if len(batch) < page_length:
+            print(f"page {page}: short page, history exhausted")
+            break
+        page += 1
+
+    fresh = sum(1 for r in records
+                if r.get("added") is None or r["added"] > watermark)
+    print(f"read {page} pages, {len(records)} records, {fresh} newer than the "
+          f"watermark")
+    return records
 
 
 def normalise(record):
@@ -209,13 +368,25 @@ def schema():
     ]
 
 
-def load_to_bigquery(records, table="accelerations"):
-    """Replace `${accel_dst}.accelerations`. About 30k rows, a few MB of storage."""
+def load_to_bigquery(records, table="accelerations", append=False):
+    """Write records to `${accel_dst}.accelerations`.
+
+    A full crawl replaces the table -- about 30k rows, a few MB of storage. A
+    top-up appends only what is not there yet, keyed on `(txid, added)`, so a
+    short or interrupted fetch can never shrink what is already loaded.
+    """
     from google.cloud import bigquery as bq
 
     import bqio
 
     bqio.ensure_dataset(config.ACCEL_DATASET)
+    if append:
+        seen = len(records)
+        records = unloaded(records, existing_keys())
+        print(f"{seen - len(records)} of {seen} records were already loaded")
+        if not records:
+            print("nothing to append")
+            return
     rows = [normalise(r) for r in records]
     # Send timestamps as ISO strings rather than unix seconds, so the column
     # type is obvious from the payload instead of implied by the loader.
@@ -226,13 +397,15 @@ def load_to_bigquery(records, table="accelerations"):
                                          time.gmtime(row[key]))
 
     target = f"{config.accel_dst()}.{table}"
+    disposition = "WRITE_APPEND" if append else "WRITE_TRUNCATE"
     job = bqio.client().load_table_from_json(
         rows, target,
         job_config=bq.LoadJobConfig(schema=schema(),
-                                    write_disposition="WRITE_TRUNCATE"),
+                                    write_disposition=disposition),
     )
     job.result()
-    print(f"loaded {len(rows)} rows into {target}")
+    verb = "appended" if append else "loaded"
+    print(f"{verb} {len(rows)} rows into {target}")
 
 
 def monthly_table(paid):
@@ -322,7 +495,7 @@ def summarise(records, stats, complete=True):
                   "earlier, so it says nothing about the window before it.")
         else:
             print("This is the newest slice only -- not the start of the "
-                  "history. Run without --max-pages for the real range.")
+                  "history. Run --full for the real range.")
         monthly_table(paid)
 
 
@@ -330,8 +503,9 @@ def main():
     parser = argparse.ArgumentParser(
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--sleep", type=float, default=1.0,
-                        help="seconds between requests (default 1.0)")
+    parser.add_argument("--sleep", type=float, default=DEFAULT_SLEEP,
+                        help=f"seconds between requests "
+                             f"(default {DEFAULT_SLEEP:.0f}, about 3 a minute)")
     parser.add_argument("--page-length", type=int, default=MAX_PAGE_LENGTH)
     parser.add_argument("--max-pages", type=int, default=0,
                         help="stop early, for a smoke test")
@@ -339,22 +513,49 @@ def main():
                         help="ignore cached pages and refetch")
     parser.add_argument("--no-load", action="store_true",
                         help="skip the BigQuery load")
+    parser.add_argument("--full", action="store_true",
+                        help="re-crawl the whole history and replace the table")
+    parser.add_argument("--since", metavar="YYYY-MM-DD",
+                        help="top up from this time instead of the newest "
+                             "record already in BigQuery")
+    parser.add_argument("--overlap", type=int, default=2, metavar="N",
+                        help="pages to read past the watermark (default 2)")
     args = parser.parse_args()
 
     stats = fetch_stats(args.sleep)
-    records, complete = fetch_pages(args.sleep, args.page_length,
-                                    args.max_pages, args.refresh)
+
+    watermark = None
+    if not args.full:
+        watermark = (parse_since(args.since) if args.since
+                     else watermark_from_bigquery())
+        if watermark is None:
+            print("nothing loaded yet -- crawling the whole history")
+
+    if watermark is None:
+        records, complete = fetch_pages(args.sleep, args.page_length,
+                                        args.max_pages, args.refresh)
+        append = False
+    else:
+        print(f"topping up from {utc(watermark)} UTC")
+        records = fetch_new(args.sleep, args.page_length, watermark,
+                            args.overlap)
+        complete, append = False, True
+
     if not records:
         print("no records fetched")
         return 1
 
-    with open(os.path.join(cache_dir(), "all.json"), "w") as fh:
-        json.dump(records, fh)
+    # `all.json` is the on-disk copy of the whole history. A top-up holds only
+    # the newest slice, so writing it there would replace the history with a
+    # fragment.
+    if not append:
+        with open(os.path.join(cache_dir(), "all.json"), "w") as fh:
+            json.dump(records, fh)
 
     summarise(records, stats, complete)
 
     if not args.no_load:
-        load_to_bigquery(records)
+        load_to_bigquery(records, append=append)
     return 0
 
 

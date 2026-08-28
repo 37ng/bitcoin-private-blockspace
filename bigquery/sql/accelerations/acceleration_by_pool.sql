@@ -26,7 +26,7 @@ SELECT
 FROM `${accel_dst}.accelerations` AS a
 JOIN `${dst}.blocks` AS b
   ON b.block_number = a.block_height
-WHERE NOT a.canceled
-  AND STARTS_WITH(a.status, 'completed')
+-- Cancelled-but-completed accelerations count: see acceleration_monthly.sql.
+WHERE STARTS_WITH(a.status, 'completed')
 GROUP BY b.pool_name
 ORDER BY off_chain_sats DESC;

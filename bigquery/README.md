@@ -153,9 +153,63 @@ history is slow to (re)fetch and worth keeping, so `delete_dataset.py` — which
 only ever touches `BQ_DATASET` — cannot take it out between months.
 
 ```bash
-uv run python fetch_accelerations.py  # crawl mempool.space, load accelerations.accelerations
-uv run python run_accelerations.py    # build the summary tables from it
+uv run python fetch_accelerations.py          # top up: read only what is new
+uv run python fetch_accelerations.py --full   # re-crawl the whole history
+uv run python run_accelerations.py            # build the summary tables from it
 ```
+
+A top-up is the normal run. The history endpoint is newest-first and takes no
+`since` parameter, so the walk starts at page 1 and stops once it has read
+`--overlap` consecutive pages lying at or before the watermark — by default
+`MAX(added)` already in BigQuery, or `--since` to override it. At the recent
+rate of about 25 accelerations a day, a daily top-up reads one page and a
+month-old one reads about fifteen; a `--full` re-crawl reads about 610.
+
+That difference is what the flag buys. Requests go out at one every 20
+seconds — three a minute, `--sleep` to change it — so pages, not seconds, set
+the wall time:
+
+| gap since last fetch | pages read | wall time |
+|---|---|---|
+| nothing new | 2 | ~1.5 min (measured) |
+| a day | 3 | ~2 min |
+| a week | 6 | ~3 min |
+| a month | 17 | ~7 min |
+| `--full` | ~610 | ~4 h |
+
+Every walk reads `--overlap` pages beyond the new ones, and the stats call
+adds one request, so a top-up with nothing to fetch still costs three
+requests.
+
+The pace is deliberately slower than the API forces. It publishes no rate
+limit, and at one request a second it pushed back constantly enough that the
+backoff, not the sleep, set the real rate — about 5 pages a minute either way.
+Asking slowly costs a top-up nothing, because a top-up reads a page or two
+whatever the pace.
+
+Three properties make the partial walk safe, and all three are tested in
+`tests/test_fetch_accelerations.py`:
+
+- **The watermark is a comparison, never a lookup.** Nothing has to still
+  exist at that timestamp: `added > watermark` selects the records that follow
+  it, not the one it came from.
+- **The list only grows at the top.** It is sorted by `added` descending and
+  `added` never changes, so an insertion pushes records towards higher page
+  numbers — never towards lower ones, where a downward walk has already been.
+  A page number is therefore not a bookmark: half a page of new records moves
+  every boundary by half a page.
+- **The key is `(txid, added)`, not `txid`.** One transaction can carry more
+  than one acceleration request — a retry after a failure — and both are real.
+  Because `added` never changes, the same key also collapses a record the API
+  returned twice.
+
+The load is `WRITE_APPEND` of what is missing, so a short or interrupted
+top-up can never shrink the table. Only `--full` replaces it.
+
+All of it rests on the list being append-only, which was checked rather than
+assumed: re-fetching a year of history nine days after the first load returned
+all 8,265 records with no field changed and none missing, and `x-total-count`
+has only ever risen.
 
 `run_accelerations.py`'s steps live in `sql/accelerations/`, apart from the
 numbered `01`-`08` pipeline chain in `sql/`.
