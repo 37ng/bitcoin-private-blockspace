@@ -138,12 +138,37 @@ uv run python run_pipeline.py --month 2023-04
 uv run python delete_dataset.py
 ```
 
-`--month` runs the full step list for that month, then exports it into
-`out/` (merging into any earlier months already there — see
-`export_results.py`). The BigQuery working dataset itself is left in place
-so you can inspect it; once the local files hold what you need,
+`--month` runs the full step list for that month, then merges it into the
+JSON files in `out/`. The BigQuery working dataset itself is left in place so
+you can inspect it; once the local files hold what you need,
 `delete_dataset.py` drops it so storage does not grow across months. Local
 output stays on the order of megabytes per month.
+
+## The output files
+
+`out/` is tracked in git, so the answer grows with the repository rather than
+being rebuilt from scratch each time. Every table is a JSON array of records:
+
+    monthly_summary.json      per month: low-fee space, share, value bands
+    pool_summary.json         the same per pool
+    low_fee_sensitivity.json  the 3x3 threshold grid, per month
+    low_fee_txs_sample.json   the 5,000 largest low-fee transactions
+    headline.json             the numbers quoted in the write-up
+    summary.md                a readable digest of all of the above
+
+The merge is keyed on `block_month`. `export_results.py` reads the months the
+working dataset holds, drops exactly those months from each file, and writes
+the fresh rows in their place. Months the run did not touch are untouched, so
+a run only ever adds to the history — and re-running a month you already have
+replaces it instead of double-counting it. That is why step 08 groups the
+sensitivity grid by month too: its cells are sums, and they are summed across
+months only when `summary.md` and `headline.json` are written.
+
+`headline.json` and `summary.md` are derived files. They are rewritten from
+the full merged tables on every export, so they always cover every month on
+disk. `export_results.py --replace` ignores what is on disk and writes only
+what the working dataset holds; use it to rebuild the files from a full-window
+dataset.
 
 ## The accelerations dataset
 
@@ -159,7 +184,12 @@ uv run python fetch_accelerations.py          # top up: read only what is new
 uv run python fetch_accelerations.py --full   # re-crawl the whole history
 uv run python fetch_accelerations.py --since 2024-01-01 --until 2024-04-01
 uv run python run_accelerations.py            # build the summary tables from it
+uv run python export_accelerations.py         # write ../data/*.json for the write-up
 ```
+
+The steady state is one command: a top-up reads the page or two that is new.
+The backfill below is the one-off, and `export_accelerations.py --check` says
+how much of it is left.
 
 A top-up is the normal run. The history endpoint is newest-first and takes no
 `since` parameter, so the walk starts at page 1 and stops once it has read
@@ -243,6 +273,63 @@ All of it rests on the list being append-only, which was checked rather than
 assumed: re-fetching a year of history nine days after the first load returned
 all 8,265 records with no field changed and none missing, and `x-total-count`
 has only ever risen.
+
+### What gets published, and when a month is allowed to count
+
+The unit of the analysis is a calendar month, so a month is either whole or it
+is not evidence. A partial August says nothing about August, and printing it
+beside a full July invites a comparison that is not there.
+`export_accelerations.py` writes `../data/accelerations_monthly.json` — small,
+in git, and read by the write-up instead of BigQuery, so a figure can be
+reproduced without credentials — and it puts a month in that file only when two
+things hold:
+
+- **the month has ended**, so no more records can arrive in it;
+- **the month has been read**, so some run actually walked the whole of it.
+
+The second is the one that needs machinery. Nothing in the rows distinguishes a
+month half fetched from a genuinely quiet month — both are just fewer records.
+So every run that loads also appends the span it read to
+`${accel_dst}.acceleration_coverage`, and the exporter merges those spans. A
+month is published when one merged span holds all of it.
+
+The first condition then needs no calendar rule of its own. Coverage ends when
+the last run *started*, and that instant is inside the current month, never past
+its end, so the current month fails the same test and keeps failing until a run
+happens in the following month. Both requirements fall out of one piece of
+arithmetic, which is what `tests/test_export_accelerations.py` pins down.
+
+The exporter separates the two reasons a month is held back, because they need
+different responses:
+
+```
+2026-08 is still filling (640 records so far) and is held back until it ends.
+
+=== 2 months with a gap ===
+  2026-01     210 records so far  needs 2026-01-01 to 2026-02-01
+  2026-02     480 records so far  needs 2026-02-01 to 2026-03-01
+
+The oldest gap first:
+  uv run python fetch_accelerations.py --since 2026-01-01 --until 2026-02-01
+```
+
+A filling month needs nothing — the next top-up finishes it. A gap needs a
+backfill, and the exporter prints the exact range. Work down that list and the
+backfill is done; after that, top-ups alone keep the file current.
+
+The file carries no generated-at stamp and is rewritten only when the numbers
+change, so a re-run of unchanged data produces no commit.
+
+**One-off, for a table loaded before the ledger existed:**
+
+```bash
+uv run python export_accelerations.py --seed-coverage
+```
+
+This claims the span between the oldest and newest loaded record as read. It is
+an assumption, not a measurement — true if that data came from full crawls and
+top-ups, false if a crawl was interrupted in the middle. Anything it gets wrong
+is fixed by re-fetching that range, which costs pages and no rows.
 
 `run_accelerations.py`'s steps live in `sql/accelerations/`, apart from the
 numbered `01`-`08` pipeline chain in `sql/`.

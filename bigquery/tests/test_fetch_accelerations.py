@@ -181,7 +181,41 @@ def test_the_walk_reads_every_record_between_the_bounds(monkeypatch):
     pages, _ = fake_history(monkeypatch, times)
     monkeypatch.setattr(fa, "history_size", lambda *a, **k: (len(times), pages))
     since, until = 1_000_000 - 60 * 3_000, 1_000_000 - 60 * 1_000
-    got = fa.fetch_range(sleep=0, page_length=50, since=since, until=until,
-                         overlap=2, max_pages=0)
+    got, complete = fa.fetch_range(sleep=0, page_length=50, since=since,
+                                   until=until, overlap=2, max_pages=0)
+    assert complete
     assert [r["added"] for r in got] == [t for t in times
                                          if since <= t <= until]
+
+
+def test_a_walk_stopped_by_max_pages_reports_itself_incomplete(monkeypatch):
+    """The flag the coverage ledger depends on."""
+    times = [1_000_000 - 60 * i for i in range(5_000)]
+    pages, _ = fake_history(monkeypatch, times)
+    monkeypatch.setattr(fa, "history_size", lambda *a, **k: (len(times), pages))
+    got, complete = fa.fetch_range(sleep=0, page_length=50, since=0,
+                                   until=times[0], overlap=2, max_pages=3)
+    assert not complete
+    assert fa.covered_window(got, 0, times[0], complete)[0] > 0
+
+
+# --- what a run may claim to have read -----------------------------------
+
+def test_a_finished_walk_claims_the_range_it_was_asked_for():
+    got = fa.covered_window([record("a", 150)], 100, 200, complete=True)
+    assert got == (100, 200)
+
+
+def test_a_walk_cut_short_claims_only_as_far_as_it_reached():
+    """--max-pages must not let a half-read month be published as finished.
+
+    The walk goes downwards from `until`, so what it holds is contiguous and
+    ends there. Claiming the requested `since` would assert records it never
+    looked at.
+    """
+    read = [record("a", 190), record("b", 170), record("c", 160)]
+    assert fa.covered_window(read, 100, 200, complete=False) == (160, 200)
+
+
+def test_a_walk_that_kept_nothing_claims_nothing():
+    assert fa.covered_window([], 100, 200, complete=False) is None

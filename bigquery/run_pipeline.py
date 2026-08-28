@@ -6,9 +6,10 @@
 
 The source dataset is partitioned by month, and the pipeline aggregates by
 month, so a normal run covers exactly one month with `--month`. Each run
-writes its month into the local `out/` files and leaves the BigQuery working
-dataset in place; delete it with `delete_dataset.py` once the local files
-hold what you need.
+merges its month into the JSON files in `out/`, which are tracked in git:
+months already there stay, and a month run twice replaces itself. The
+BigQuery working dataset is left in place; delete it with `delete_dataset.py`
+once the local files hold what you need.
 
 Step 01 is the only step that touches the public dataset. It reads that one
 month's partition, about 29 GB, and everything after it works on local tables.
@@ -156,7 +157,7 @@ def main():
     parser.add_argument("--dry-run", action="store_true",
                         help="report bytes per step and stop")
     parser.add_argument("--month", metavar="YYYY-MM",
-                        help="run one month end to end, then export it to out/")
+                        help="run one month end to end, then merge it into out/")
     parser.add_argument("--from", dest="from_step", metavar="STEP",
                         help="start at this step")
     parser.add_argument("--only", metavar="STEP[,STEP]",
@@ -198,7 +199,7 @@ def main():
     headline()
 
     if args.month:
-        print(f"\nexporting {args.month} to {config.OUT_DIR}/")
+        print(f"\nmerging {args.month} into {config.OUT_DIR}/")
         export_results.export_month(config.OUT_DIR)
         print(f"\ndone. delete the BigQuery working dataset when ready:"
               f"\n  python delete_dataset.py")
