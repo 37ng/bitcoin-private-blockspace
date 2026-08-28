@@ -32,6 +32,7 @@ def sql_vars(extra=None):
     v = config.template_vars()
     v["pool_tags"] = pools.tag_struct_sql()
     v["pool_addresses"] = pools.address_struct_sql()
+    v["pool_ids"] = pools.pool_id_struct_sql()
     if extra:
         v.update(extra)
     return v

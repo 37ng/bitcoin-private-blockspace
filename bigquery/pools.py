@@ -93,6 +93,28 @@ def load_pools():
     return BUILTIN_POOLS
 
 
+def load_pool_ids():
+    """Return `{pool id: pool name}` from the refreshed file.
+
+    The id is mempool.space's `poolUniqueId`, which is what the acceleration
+    API reports: `mined_by_pool_unique_id`, and every entry of the `pools`
+    array of partner pools a request was offered to. The built-in table
+    carries no ids, so this is empty until `refresh_pools.py` has run.
+    """
+    if not os.path.exists(_JSON_PATH):
+        return {}
+    with open(_JSON_PATH) as fh:
+        data = json.load(fh)
+    ids = {}
+    for name, entry in data.items():
+        if not isinstance(entry, dict):
+            continue
+        pool_id = entry.get("id")
+        if isinstance(pool_id, int) and not isinstance(pool_id, bool):
+            ids[pool_id] = name
+    return ids
+
+
 def _sql_string(value: str) -> str:
     """Quote a Python string as a BigQuery string literal."""
     return "'" + value.replace("\\", "\\\\").replace("'", "\\'") + "'"
@@ -141,4 +163,22 @@ def address_struct_sql() -> str:
     if not rows:
         # An empty array literal needs an explicit type in BigQuery.
         return ("ARRAY<STRUCT<pool_name STRING, address STRING>>[]")
+    return "[\n    " + ",\n    ".join(rows) + "\n  ]"
+
+
+def pool_id_struct_sql() -> str:
+    """`UNNEST([...])` body mapping a mempool.space pool id to a pool name.
+
+    This is for reading the acceleration `pools` array, the list of partner
+    pools a request was offered to. It is not for block attribution: which
+    pool mined a block is decided by the coinbase, above, so that the project
+    keeps one definition of "which pool".
+    """
+    ids = load_pool_ids()
+    if not ids:
+        # An empty array literal needs an explicit type in BigQuery.
+        return "ARRAY<STRUCT<pool_name STRING, pool_unique_id INT64>>[]"
+    rows = [f"STRUCT({_sql_string(name)} AS pool_name, "
+            f"{pool_id} AS pool_unique_id)"
+            for pool_id, name in sorted(ids.items())]
     return "[\n    " + ",\n    ".join(rows) + "\n  ]"
