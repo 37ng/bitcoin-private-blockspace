@@ -8,7 +8,9 @@ should be able to reproduce a figure from it without BigQuery credentials.
 |---|---|---|
 | `accelerations_monthly.json` | `bigquery/export_accelerations.py` | out-of-band spend per calendar month |
 
-Only complete months appear. A month is published when some run has read the
-whole of it, which is not the same as the month having ended — see
-`export_accelerations.py` for why the two are tracked apart. Nothing here is
-edited by hand; re-run the exporter instead.
+Only complete months appear. The accelerations table holds one contiguous run
+of the history, so `MIN(added)` and `MAX(added)` bound a stretch with nothing
+missing inside it, and a month is published when that run covers all of it.
+See `bigquery/export_accelerations.py` for why that is the whole test.
+
+Nothing here is edited by hand; re-run the exporter instead.

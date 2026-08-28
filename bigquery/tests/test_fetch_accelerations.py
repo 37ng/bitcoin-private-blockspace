@@ -1,9 +1,10 @@
-"""Offline tests for the incremental acceleration fetch.
+"""Offline tests for the acceleration fetch.
 
-No credentials and, apart from one fake list, no requests: the stop rule, the
-window and the identity key are pure functions over records, so a handful of
-literal dicts exercises them. What they protect is the claim every partial
-walk down a newest-first list rests on -- that it cannot skip a record.
+No credentials and, apart from one fake list, no requests. What these protect
+is the invariant every other piece of the pipeline leans on: the table holds
+one contiguous run of the history, so `MIN(added)` and `MAX(added)` bound a
+stretch with nothing missing inside it. If a fetch could leave a gap, the
+export would publish a half-fetched month as a finished one.
 """
 
 import os
@@ -16,49 +17,77 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import fetch_accelerations as fa
 
 
-def record(txid, added):
-    return {"txid": txid, "added": added}
+def record(txid, added, status="completed"):
+    return {"txid": txid, "added": added, "status": status}
 
 
-# --- the stop rule ------------------------------------------------------
+# --- what may be stored --------------------------------------------------
 
-def test_page_of_older_records_stops_the_walk():
-    page = [record("a", 100), record("b", 90)]
-    assert fa.page_is_old(page, 100)
-
-
-def test_one_newer_record_keeps_the_walk_going():
-    page = [record("a", 101), record("b", 90)]
-    assert not fa.page_is_old(page, 100)
+def test_a_settled_record_is_stored():
+    assert fa.is_settled(record("a", 100, "completed"))
+    assert fa.is_settled(record("a", 100, "completed_provisional"))
+    assert fa.is_settled(record("a", 100, "failed"))
 
 
-def test_a_record_without_a_time_counts_as_new():
-    """Read an odd record again rather than risk stopping short of it."""
-    assert not fa.page_is_old([record("a", None)], 100)
+def test_an_in_flight_record_is_skipped():
+    """Storing it would freeze it.
 
-
-def test_the_watermark_itself_is_old():
-    """`added > watermark` selects what follows, so equality must not requeue."""
-    assert fa.page_is_old([record("a", 100)], 100)
-
-
-# --- the watermark is a comparison, not a lookup ------------------------
-
-def test_the_watermark_is_a_comparison_not_a_lookup():
-    """Resuming must not depend on finding a particular record.
-
-    Nothing has to still sit at the watermark timestamp for the walk to pick
-    up the right place. An identity-based resume would break here; a
-    comparison does not.
+    Loads only append, keyed on `(txid, added)`, so an `accelerating` record
+    written now keeps that status for good and never counts as revenue however
+    it actually ended up. A later run reads it again, settled.
     """
-    watermark = 100
-    upstream = [record("new", 130), record("also-new", 120)]
-    assert not fa.page_is_old(upstream, watermark)
-    # the anchor at exactly 100 is gone; the page below it is still "old"
-    assert fa.page_is_old([record("older", 99)], watermark)
+    assert not fa.is_settled(record("a", 100, "accelerating"))
 
 
-# --- the identity key ---------------------------------------------------
+def test_an_unknown_status_is_treated_as_in_flight():
+    """Erring towards re-reading a record beats freezing a state we don't know."""
+    assert not fa.is_settled(record("a", 100, "queued_somehow"))
+    assert not fa.is_settled({"txid": "a", "added": 100})
+
+
+def test_collect_drops_in_flight_records_but_still_reports_their_keys():
+    """The top-up's stop rule counts every record read, settled or not.
+
+    A page of in-flight records still proves the walk reached that part of the
+    list, which is what the join test needs to know.
+    """
+    records, seen, keys = [], set(), set()
+    batch = [record("a", 100), record("b", 90, "accelerating")]
+    assert fa.collect(batch, records, seen, keys) == 1
+    assert [r["txid"] for r in records] == ["a"]
+    assert keys == {("a", 100), ("b", 90)}
+
+
+# --- the identity key ----------------------------------------------------
+
+def test_one_txid_can_hold_two_real_requests():
+    """A retry after a failure shares the txid but not the time.
+
+    Keying on txid alone would drop the second, which is a real record.
+    Observed on page 2 of the live history: two `failed` requests for one
+    transaction, 34 minutes apart.
+    """
+    first, retry = record("7046aca3", 1787000324), record("7046aca3", 1787002346)
+    assert len({fa.key_of(first), fa.key_of(retry)}) == 2
+
+
+def test_a_record_returned_twice_collapses():
+    """The same record on two pages is one record, not two.
+
+    `added` never changes, so the duplicate shares the whole key.
+    """
+    copy, same = record("04fdd997", 1712571182), record("04fdd997", 1712571182)
+    assert len({fa.key_of(copy), fa.key_of(same)}) == 1
+
+
+def test_collect_keeps_one_copy_of_a_record_seen_twice():
+    records, seen = [], set()
+    fa.collect([record("a", 100)], records, seen)
+    fa.collect([record("a", 100)], records, seen)
+    assert len(records) == 1
+
+
+# --- reading bounds ------------------------------------------------------
 
 def test_parse_time_accepts_a_date_or_a_timestamp():
     assert fa.parse_time("2026-08-18") == 1787011200
@@ -70,74 +99,22 @@ def test_parse_time_rejects_nonsense():
         fa.parse_time("last tuesday")
 
 
-def test_one_txid_can_hold_two_real_requests():
-    """A retry after a failure shares the txid but not the time.
-
-    Keying on txid alone would drop the second, which is a real record.
-    Observed on page 2 of the live history: two `failed` requests for one
-    transaction, 34 minutes apart.
-    """
-    first = record("7046aca3", 1787000324)
-    retry = record("7046aca3", 1787002346)
-    keys = {(r["txid"], r["added"]) for r in (first, retry)}
-    assert len(keys) == 2
+def test_a_page_of_older_records_stops_a_downward_walk():
+    assert fa.page_is_old([record("a", 100), record("b", 90)], 100)
 
 
-def test_a_record_returned_twice_collapses():
-    """The same record on two pages is one record, not two.
-
-    `added` never changes, so the duplicate shares the whole key. One such
-    pair exists among completed records and double-counts 60,000 sats.
-    """
-    copy = record("04fdd997", 1712571182)
-    same = record("04fdd997", 1712571182)
-    keys = {(r["txid"], r["added"]) for r in (copy, same)}
-    assert len(keys) == 1
+def test_one_newer_record_keeps_a_downward_walk_going():
+    assert not fa.page_is_old([record("a", 101), record("b", 90)], 100)
 
 
-# --- what the watermark does and does not decide ------------------------
-
-def test_the_watermark_stops_the_read_but_never_filters_the_keep():
-    """A record whose `added` equals the watermark is still loaded.
-
-    Two accelerations can share a second. Its page counts as old and stops the
-    walk, but the record is kept, because keeping is decided by key. A rule
-    that filtered on `added > watermark` would lose it silently.
-    """
-    watermark = 100
-    page = [record("anchor", 100), record("same-second", 100)]
-    assert fa.page_is_old(page, watermark)          # the walk stops here
-    have = {("anchor", 100)}                        # ...but this is still new
-    assert [r["txid"] for r in fa.unloaded(page, have)] == ["same-second"]
-
-
-# --- the range window ---------------------------------------------------
-
-def test_the_window_keeps_both_bounds():
-    """Inclusive at both ends.
-
-    The lower bound must be inclusive for the same reason the watermark is:
-    the walk stops on a page whose newest record sits exactly there, so a
-    second acceleration in that same second has no other run to read it.
-    """
-    assert fa.in_window(record("on-since", 100), 100, 200)
-    assert fa.in_window(record("inside", 150), 100, 200)
-    assert fa.in_window(record("on-until", 200), 100, 200)
-
-
-def test_the_window_drops_what_lies_outside_it():
-    assert not fa.in_window(record("older", 99), 100, 200)
-    assert not fa.in_window(record("newer", 201), 100, 200)
-
-
-def test_a_record_without_a_time_is_kept():
-    """It cannot be placed, and one loaded twice beats one lost."""
-    assert fa.in_window(record("odd", None), 100, 200)
+def test_a_record_without_a_time_counts_as_new():
+    """Read an odd record again rather than risk stopping short of it."""
+    assert not fa.page_is_old([record("a", None)], 100)
 
 
 # --- the seek ------------------------------------------------------------
 
-def fake_history(monkeypatch, added, page_length=50):
+def fake_history(monkeypatch, added, page_length=50, status="completed"):
     """Serve a newest-first list of `added` values as pages, without requests."""
     added = sorted(added, reverse=True)
     pages = [added[i:i + page_length]
@@ -148,9 +125,11 @@ def fake_history(monkeypatch, added, page_length=50):
         page = params["page"]
         calls.append(page)
         batch = pages[page - 1] if 1 <= page <= len(pages) else []
-        return None, [record(f"tx{t}", t) for t in batch]
+        return None, [record(f"tx{t}", t, status) for t in batch]
 
     monkeypatch.setattr(fa, "get_json", get_json)
+    monkeypatch.setattr(fa, "history_size",
+                        lambda *a, **k: (len(added), len(pages)))
     return len(pages), calls
 
 
@@ -158,8 +137,7 @@ def test_the_seek_lands_on_the_page_holding_the_bound(monkeypatch):
     """One record a minute for 600 pages; the bound sits on a known page."""
     times = [1_000_000 - 60 * i for i in range(30_000)]
     pages, calls = fake_history(monkeypatch, times)
-    # page 401 opens at index 20_000, i.e. 1_000_000 - 60 * 20_000
-    bound = 1_000_000 - 60 * 20_000
+    bound = 1_000_000 - 60 * 20_000        # page 401 opens here
     assert fa.seek_page(bound, 50, pages, sleep=0) == 401
     assert len(calls) < 15, "a 600-page list must not cost 600 requests"
 
@@ -170,52 +148,72 @@ def test_a_bound_above_the_newest_record_enters_at_page_one(monkeypatch):
 
 
 def test_a_bound_below_the_oldest_record_enters_at_the_last_page(monkeypatch):
-    times = [1_000_000 - 60 * i for i in range(200)]
-    pages, _ = fake_history(monkeypatch, times)
+    pages, _ = fake_history(monkeypatch, [1_000_000 - 60 * i
+                                          for i in range(200)])
     assert fa.seek_page(0, 50, pages, sleep=0) == pages
 
 
-def test_the_walk_reads_every_record_between_the_bounds(monkeypatch):
-    """The seek and the window together must lose nothing in the middle."""
+# --- the top-up must join the run ----------------------------------------
+
+def test_the_top_up_stops_once_it_touches_records_already_held(monkeypatch):
+    """The stop rule is the invariant, not a timestamp comparison."""
     times = [1_000_000 - 60 * i for i in range(5_000)]
-    pages, _ = fake_history(monkeypatch, times)
-    monkeypatch.setattr(fa, "history_size", lambda *a, **k: (len(times), pages))
-    since, until = 1_000_000 - 60 * 3_000, 1_000_000 - 60 * 1_000
-    got, complete = fa.fetch_range(sleep=0, page_length=50, since=since,
-                                   until=until, overlap=2, max_pages=0)
-    assert complete
-    assert [r["added"] for r in got] == [t for t in times
-                                         if since <= t <= until]
+    fake_history(monkeypatch, times)
+    have = {(f"tx{t}", t) for t in times[300:]}     # everything below page 7
+    got = fa.fetch_top_up(sleep=0, page_length=50, have=have, overlap=2)
+    # It read past the join, so it holds every record newer than the run.
+    assert set(times[:300]) <= {r["added"] for r in got}
 
 
-def test_a_walk_stopped_by_max_pages_reports_itself_incomplete(monkeypatch):
-    """The flag the coverage ledger depends on."""
-    times = [1_000_000 - 60 * i for i in range(5_000)]
-    pages, _ = fake_history(monkeypatch, times)
-    monkeypatch.setattr(fa, "history_size", lambda *a, **k: (len(times), pages))
-    got, complete = fa.fetch_range(sleep=0, page_length=50, since=0,
-                                   until=times[0], overlap=2, max_pages=3)
-    assert not complete
-    assert fa.covered_window(got, 0, times[0], complete)[0] > 0
+def test_the_top_up_refuses_to_stop_short_of_the_run(monkeypatch):
+    """A walk that never reaches known records would leave a gap.
 
-
-# --- what a run may claim to have read -----------------------------------
-
-def test_a_finished_walk_claims_the_range_it_was_asked_for():
-    got = fa.covered_window([record("a", 150)], 100, 200, complete=True)
-    assert got == (100, 200)
-
-
-def test_a_walk_cut_short_claims_only_as_far_as_it_reached():
-    """--max-pages must not let a half-read month be published as finished.
-
-    The walk goes downwards from `until`, so what it holds is contiguous and
-    ends there. Claiming the requested `since` would assert records it never
-    looked at.
+    Loading it would put new records above a hole and quietly break the
+    contiguity that MIN/MAX completeness depends on, so the run fails loudly
+    instead.
     """
-    read = [record("a", 190), record("b", 170), record("c", 160)]
-    assert fa.covered_window(read, 100, 200, complete=False) == (160, 200)
+    times = [1_000_000 - 60 * i for i in range(300)]
+    fake_history(monkeypatch, times)
+    with pytest.raises(SystemExit, match="contiguous"):
+        fa.fetch_top_up(sleep=0, page_length=50,
+                        have={("nothing-here", 1)}, overlap=2)
 
 
-def test_a_walk_that_kept_nothing_claims_nothing():
-    assert fa.covered_window([], 100, 200, complete=False) is None
+def test_the_top_up_reads_past_the_join_by_the_overlap(monkeypatch):
+    """A record that shifted pages mid-walk must still be seen."""
+    times = [1_000_000 - 60 * i for i in range(5_000)]
+    _, calls = fake_history(monkeypatch, times)
+    have = {(f"tx{t}", t) for t in times[100:]}     # join lands on page 3
+    fa.fetch_top_up(sleep=0, page_length=50, have=have, overlap=2)
+    assert max(calls) >= 5, "must read overlap pages beyond the first touch"
+
+
+# --- the backfill must join the run --------------------------------------
+
+def test_the_backfill_extends_the_run_downwards_without_a_gap(monkeypatch):
+    """Everything between the target and the old bottom must come back."""
+    times = [1_000_000 - 60 * i for i in range(5_000)]
+    fake_history(monkeypatch, times)
+    oldest_held = times[2_000]
+    target = times[3_500]
+    got = fa.fetch_back_to(sleep=0, page_length=50, oldest_held=oldest_held,
+                           target=target, overlap=2, max_pages=0)
+    added = {r["added"] for r in got}
+    assert set(times[2_000:3_501]) <= added, "left a hole above the target"
+
+
+def test_the_backfill_starts_above_the_anchor_so_the_join_overlaps(monkeypatch):
+    """Meeting the run exactly would rely on page numbers holding still."""
+    times = [1_000_000 - 60 * i for i in range(5_000)]
+    fake_history(monkeypatch, times)
+    got = fa.fetch_back_to(sleep=0, page_length=50, oldest_held=times[2_000],
+                           target=times[2_500], overlap=2, max_pages=0)
+    assert max(r["added"] for r in got) > times[2_000], "no overlap with the run"
+
+
+def test_a_backfill_stores_no_in_flight_records(monkeypatch):
+    times = [1_000_000 - 60 * i for i in range(500)]
+    fake_history(monkeypatch, times, status="accelerating")
+    got = fa.fetch_back_to(sleep=0, page_length=50, oldest_held=times[100],
+                           target=times[300], overlap=2, max_pages=0)
+    assert got == []
