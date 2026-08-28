@@ -39,7 +39,7 @@ with no in-block paying child is unambiguously non-relayable.
    application-default credentials are present.
 
 2. **mempool.space cross-check** (`validate_against_mempool.py`). Samples
-   ~50 Flag A blocks from the covered period (height ≳ 790,000), fetches
+   ~50 low-fee-flagged blocks from the covered period (height ≳ 790,000), fetches
    `/api/v1/block/{hash}/audit-summary`, reports:
    - overlap between our flagged txs and their `addedTxs` — expect
      partial, since that set also holds latency and policy artifacts while
@@ -58,7 +58,7 @@ with no in-block paying child is unambiguously non-relayable.
    public hashrate chart. If a share is off by more than ~2 points,
    attribution is broken and the flagged-tx numbers mean nothing.
 
-4. **End to end.** Full run, then read `flag_a_sensitivity` before
+4. **End to end.** Full run, then read `low_fee_sensitivity` before
    believing any headline: if the number swings hard across the 3×3 grid,
    the finding is threshold-driven and has to be reported that way.
 

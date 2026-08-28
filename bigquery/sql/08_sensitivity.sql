@@ -4,8 +4,8 @@
 -- of a full block. Read this before quoting any headline: a number that moves
 -- by an order of magnitude across the grid is a statement about the cut-offs,
 -- not about private blockspace.
-CREATE OR REPLACE TABLE `${dst}.flag_a_sensitivity`
-OPTIONS (description = "Flagged space across the sensitivity x fullness grid.")
+CREATE OR REPLACE TABLE `${dst}.low_fee_sensitivity`
+OPTIONS (description = "Low-fee space across the sensitivity x fullness grid.")
 AS
 WITH grid AS (
   SELECT sensitivity, full_weight
@@ -33,13 +33,13 @@ block_fullness AS (
 SELECT
   f.sensitivity,
   f.full_weight,
-  COUNTIF(t.effective_fee_rate < f.sensitivity * f.floor_fee_rate) AS flagged_txs,
+  COUNTIF(t.effective_fee_rate < f.sensitivity * f.floor_fee_rate) AS low_fee_txs,
   SUM(IF(t.effective_fee_rate < f.sensitivity * f.floor_fee_rate,
-         t.virtual_size, 0)) AS flagged_vbytes,
+         t.virtual_size, 0)) AS low_fee_vbytes,
   SUM(IF(f.is_full, t.virtual_size, 0)) AS full_block_vbytes,
   SAFE_DIVIDE(
     SUM(IF(t.effective_fee_rate < f.sensitivity * f.floor_fee_rate, t.virtual_size, 0)),
-    SUM(IF(f.is_full, t.virtual_size, 0))) AS flagged_share,
+    SUM(IF(f.is_full, t.virtual_size, 0))) AS low_fee_share,
   SUM(IF(t.effective_fee_rate < f.sensitivity * f.floor_fee_rate,
          GREATEST(f.floor_fee_rate - t.effective_fee_rate, 0) * t.virtual_size,
          0)) / 1e8 AS lower_band_btc,

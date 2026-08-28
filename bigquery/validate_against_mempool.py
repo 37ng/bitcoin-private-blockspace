@@ -1,4 +1,4 @@
-"""Cross-check flagged transactions against mempool.space block audits.
+"""Cross-check low-fee transactions against mempool.space block audits.
 
 mempool.space keeps its own view of what a block should have contained. Its
 `audit-summary` for a block reports, among other things:
@@ -6,12 +6,13 @@ mempool.space keeps its own view of what a block should have contained. Its
     addedTxs        in the block but not in their expected template
     acceleratedTxs  paid for through their public acceleration service
 
-Neither is the same measurement as Flag A. `addedTxs` also holds latency and
-policy artifacts, while Flag A is about price, so the overlap is expected to be
+Neither is the same measurement as the low-fee test. `addedTxs` also holds
+latency and policy artifacts, while the low-fee test is about price, so the
+overlap is expected to be
 partial. It is reported as it comes out, not tuned.
 
 `acceleratedTxs` matters more: those transactions were paid for out of band
-through a public service. A flagged transaction that appears there is a
+through a public service. A low-fee transaction that appears there is a
 confirmed out-of-auction purchase — and also a transaction whose extra payment
 is publicly known, so it is arguably a false positive for the "off chain and
 invisible" reading. The count is reported either way.
@@ -67,8 +68,8 @@ def sample_blocks(sample, sensitivity_column):
         b.block_number,
         b.block_hash,
         b.pool_name,
-        COUNT(*) AS flagged_txs,
-        ARRAY_AGG(t.tx_hash LIMIT 2000) AS flagged_hashes
+        COUNT(*) AS low_fee_txs,
+        ARRAY_AGG(t.tx_hash LIMIT 2000) AS low_fee_hashes
       FROM `${{dst}}.txs` AS t
       JOIN `${{dst}}.blocks` AS b USING (block_number)
       WHERE t.{sensitivity_column}
@@ -92,7 +93,7 @@ def main():
     parser.add_argument("--sensitivity", choices=["30", "50", "70"], default="50")
     args = parser.parse_args()
 
-    column = f"flag_a_{args.sensitivity}"
+    column = f"low_fee_{args.sensitivity}"
     blocks = sample_blocks(args.sample, column)
     if not blocks:
         print(f"no blocks with {column} above height {MIN_AUDITED_HEIGHT}")
@@ -102,7 +103,7 @@ def main():
           f"(sensitivity 0.{args.sensitivity})\n")
 
     audited = 0
-    total_flagged = 0
+    total_low_fee = 0
     total_in_added = 0
     total_in_accelerated = 0
     blocks_with_any_overlap = 0
@@ -115,18 +116,18 @@ def main():
         audited += 1
         added = set(data.get("addedTxs") or [])
         accelerated = set(data.get("acceleratedTxs") or [])
-        ours = set(block["flagged_hashes"])
+        ours = set(block["low_fee_hashes"])
 
         hit_added = len(ours & added)
         hit_accel = len(ours & accelerated)
-        total_flagged += len(ours)
+        total_low_fee += len(ours)
         total_in_added += hit_added
         total_in_accelerated += hit_accel
         if hit_added or hit_accel:
             blocks_with_any_overlap += 1
 
         print(f"  {block['block_number']}  {block['pool_name']:<16s} "
-              f"flagged {len(ours):>4d}  in addedTxs {hit_added:>4d}  "
+              f"low-fee {len(ours):>4d}  in addedTxs {hit_added:>4d}  "
               f"accelerated {hit_accel:>3d}")
 
     if not audited:
@@ -136,13 +137,13 @@ def main():
 
     print(f"\nblocks with audit data      {audited} of {len(blocks)}")
     print(f"blocks with any overlap     {blocks_with_any_overlap}")
-    print(f"flagged transactions        {total_flagged}")
+    print(f"low-fee transactions        {total_low_fee}")
     print(f"  also in addedTxs          {total_in_added} "
-          f"({total_in_added / total_flagged * 100:.1f}%)")
+          f"({total_in_added / total_low_fee * 100:.1f}%)")
     print(f"  also in acceleratedTxs    {total_in_accelerated} "
-          f"({total_in_accelerated / total_flagged * 100:.1f}%)")
-    print("\naddedTxs is a presence measure and Flag A is a price measure, so "
-          "partial overlap is the expected result, not a failure.")
+          f"({total_in_accelerated / total_low_fee * 100:.1f}%)")
+    print("\naddedTxs is a presence measure and the low-fee test is a price "
+          "measure, so partial overlap is the expected result, not a failure.")
     print("Transactions in acceleratedTxs were bought out of band through a "
           "public service: they confirm the mechanism, and they are the part "
           "of the count that is not invisible.")

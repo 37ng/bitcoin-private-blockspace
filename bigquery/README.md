@@ -3,21 +3,23 @@
 One question: how much block space changed hands below the public price, in
 blocks where space was actually scarce?
 
-Everything runs from `run_pipeline.py`. Step 01 reads the public dataset once
-(~300 GB); every later step works on local tables and costs cents.
+Everything runs from `run_pipeline.py`, one month per run. Step 01 reads that
+month's partition of the public dataset (~29 GB); every later step works on
+local tables.
 
 ```
 01_tx_base       one pass over crypto_bitcoin.transactions
 02_blocks        block -> mining pool, plus an empty floor_fee_rate column
-03_txs           in-block CPFP edges, and the four non-relayable flags
+03_txs           in-block CPFP edges, and the non-relayable reasons
 04a_in_package   the subset that union-find has to look at
 04b union-find   Python: packages priced as sum(fee) / sum(vbytes)
 04c_update       package rates written back onto txs
+04d_ancestors    the one relay rule that needs the CPFP graph
 05_block_floor   p05 of the effective rates in each block
 05b_update       floor = median of the p05 of b-3..b-1, b+1..b+3
 06a_fullness     which blocks were full, and had full neighbours
-06b_flag_low_fee Flag A at 0.3 / 0.5 / 0.7 of the floor
-07_revenue       the two value bands per flagged transaction
+06b_low_fee      low-fee test at 0.3 / 0.5 / 0.7 of the floor
+07_revenue       the two value bands per low-fee transaction
 07b_monthly      the monthly answer
 07c_pool         the same answer per pool
 08_sensitivity   the 3x3 threshold grid
@@ -37,25 +39,61 @@ gift. This is the one step that leaves SQL — `unionfind.py` and
 is the median of the p05 effective rate of b-3, b-2, b-1, b+1, b+2, b+3. A pool
 that stuffs its own block with cheap transactions drags down its own p05; it
 cannot drag down its neighbours'. All six neighbours must have a value or the
-floor is NULL and the block takes no part in the flagging.
+floor is NULL and the block takes no part in the low-fee test.
 
 **Non-relayable traffic is excluded, not counted.** A transaction that a
 default node of its day would refuse to relay never entered the public auction
-at all, so its low price is explained by policy, not by a private deal. Four
-tests, each against the rules in force on the day of the block:
+at all, so its low price is explained by policy, not by a private deal.
 
-| flag | rule |
-|---|---|
-| bare multisig | more than 3 pubkeys |
-| OP_RETURN | scriptPubKey over 83 bytes before 2025-10-08 (Core v30), over 100,000 after |
-| fee rate | under 1 sat/vB before 2025-09-04 (Core 29.1), under 0.1 after |
-| size | virtual size over 100,000 vB (the 400k WU standard limit) |
+Each test uses the rule in force on the day of the block and no other. When a
+release loosened a rule, what the old rule would have caught counts as
+relayable from the release date on, even though most of the network had not
+upgraded yet: a 0.4 sat/vB transaction in October 2025 is legal traffic here,
+not evidence. When a release tightened one, the new rule starts on its release
+date. A case the rule in force does not settle is not counted at all.
+
+| reason | rule | gate |
+|---|---|---|
+| `nonrelay_nonstandard_script` | an output scriptPubKey matching no standard template | none |
+| `nonrelay_bare_multisig` | more than 3 pubkeys | none |
+| `nonrelay_op_return` | OP_RETURN scriptPubKey over 83 bytes, then over 100,000 summed across the outputs | 2025-10-08, Core v30 |
+| `nonrelay_multi_op_return` | more than one OP_RETURN output | until 2025-10-08, Core v30 |
+| `nonrelay_dust` | an output worth less than the input that would spend it | one is allowed from 2025-04-15 (Core 29) on a 0-fee parent whose child spends it |
+| `nonrelay_version` | version outside 1..2, then outside 1..3 | 2024-10-04, Core 28 |
+| `nonrelay_truc` | the version 3 size and version-mixing rules (10,000 vB, 1,000 vB for a child) | from 2024-10-04, Core 28 |
+| `nonrelay_sub_minrelay` | under 1 sat/vB, then under 0.1 | 2025-09-04, Core 29.1 |
+| `nonrelay_oversized` | virtual size over 100,000 vB (the 400k WU standard limit) | none |
+| `nonrelay_undersized` | under 65 non-witness bytes | none |
+| `nonrelay_scriptsig_size` | an input scriptSig over 1,650 bytes | none |
+| `nonrelay_scriptsig_nonpush` | an input scriptSig that opens with a real opcode | none |
+| `nonrelay_ancestor_limit` | more than 25 in-block ancestors, or more than 101,000 vB of them | until 2026-04-20, Core 31 |
 
 The fee-rate test carries one carve-out: a sub-minimum parent with a paying
 child in the same block is ordinary CPFP, not a private deal, and after Core 28
 (2024-10-04) 1p1c package relay propagates it publicly. Only a sub-minimum
-transaction with no paying in-block child is unambiguously non-relayable.
-`flag_sub_minrelay_raw` keeps the uncarved version for comparison.
+transaction with no paying in-block child is unambiguously non-relayable, so
+that is what `nonrelay_sub_minrelay` records.
+
+Two rules are deliberately read as ancestors rather than descendants. A parent
+with 40 children in one block broke the descendant limit, and a TRUC parent
+with two children broke the TRUC one, but nothing in the data says which child
+was the one too many. The transaction over an *ancestor* limit is the one that
+was refused, so that is the only side counted. Core 31 replaced both limits
+with a cluster limit, which is a property of the whole connected component and
+names no single transaction, so `nonrelay_ancestor_limit` never fires after
+2026-04-20.
+
+Some rules cannot be tested from this dataset and are missing on purpose. The
+witness of an input is not in `crypto_bitcoin`, so the P2WSH and tapscript
+stack limits and the taproot annex rule cannot be checked. The scriptPubKey of
+a spent output is not there either, so `AreInputsStandard` — spending a
+non-standard or unknown-witness-version output, and the P2SH sigop limit —
+cannot be checked. Sigop cost is not computed. `nonrelay_scriptsig_nonpush` only
+catches a scriptSig whose *first* opcode is not a push, because a full
+push-only walk needs a script parser rather than a regular expression.
+Everywhere hex alone cannot settle a question, the classifier calls the output
+standard: a missed reason understates non-relayable traffic, while a false one
+would delete a real transaction from the measurement.
 
 **A discount only counts where space was scarce.** In a block with room to
 spare, a cheap transaction costs nobody anything. A block counts as full at
@@ -77,11 +115,9 @@ condition is what separates sustained demand from one busy minute.
 
 ## Cost
 
-| | scanned | cost |
-|---|---|---|
-| step 01, full window | ~300 GB | ~$1.85 |
-| every later step, full window | ~250 GB | ~$1.60 |
-| one month, end to end (`--month`) | ~25 GB | ~$0.15 |
+A run covers one month. End to end it scans about 29 GB, near $0.18 at
+on-demand pricing. Step 01 is the only step that reads the public dataset;
+every later step reads the local tables the run just built.
 
 `tx_base` and `txs` are partitioned by month and clustered by block number;
 `blocks` and the summary tables are small enough to need neither.
@@ -96,8 +132,8 @@ The source dataset is partitioned by month and the pipeline aggregates by
 month, so the normal way to run this is one month per invocation:
 
 ```bash
-python run_pipeline.py --month 2023-04
-python delete_dataset.py
+uv run python run_pipeline.py --month 2023-04
+uv run python delete_dataset.py
 ```
 
 `--month` runs the full step list for that month, then exports it into
@@ -117,9 +153,9 @@ history is slow to (re)fetch and worth keeping, so `delete_dataset.py` — which
 only ever touches `BQ_DATASET` — cannot take it out between months.
 
 ```bash
-python fetch_accelerations.py          # top up: read only what is new
-python fetch_accelerations.py --full   # re-crawl the whole history
-python run_accelerations.py            # build the summary tables from it
+uv run python fetch_accelerations.py          # top up: read only what is new
+uv run python fetch_accelerations.py --full   # re-crawl the whole history
+uv run python run_accelerations.py            # build the summary tables from it
 ```
 
 A top-up is the normal run. The history endpoint is newest-first and takes no
@@ -197,6 +233,18 @@ sharing a formula refer to it rather than retyping it. They read the raw file,
 not the rendered SQL, because a retyped copy renders identically to the
 shared one.
 
+`test_relay_rules.py` covers the relay rules, which is where a mistake costs
+the most: a false reason deletes a relayable transaction from the measurement.
+It runs *the pipeline's own SQL*, lifted out of `01_tx_base.sql` and
+`03_txs.sql`, over inline fixtures — hand-built scriptPubKeys with
+hand-computed dust thresholds, and one transaction on each side of every
+policy date. Inline data scans nothing, so the queries are free, but they do
+run and so need credentials:
+
+```bash
+BQ_FIXTURES=1 uv run python -m pytest tests/test_relay_rules.py -q
+```
+
 Its dry-run tests ask BigQuery to parse and plan each step:
 
 ```bash
@@ -215,9 +263,10 @@ against a public hashrate chart. If a share is off by more than about 2 points,
 attribution is broken and every per-pool number is worthless. It also lists the
 coinbase text of unattributed blocks, which is how a missing tag is found.
 
-`validate_against_mempool.py` samples flagged blocks and compares them against
-mempool.space block audits. `addedTxs` is a presence measure and Flag A is a
-price measure, so partial overlap is the expected result. Transactions that
+`validate_against_mempool.py` samples low-fee blocks and compares them against
+mempool.space block audits. `addedTxs` is a presence measure and the low-fee
+test is a price measure, so partial overlap is the expected result.
+Transactions that
 appear in `acceleratedTxs` were bought out of band through a public service:
 they confirm the mechanism, and they are the part of the count that was never
 invisible.
