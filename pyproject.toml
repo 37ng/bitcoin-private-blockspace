@@ -2,7 +2,6 @@
 name = "bitcoin-private-blockspace"
 version = "0.1.0"
 description = "How much Bitcoin block space was sold outside the public fee auction"
-readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "google-cloud-bigquery>=3.25.0",
