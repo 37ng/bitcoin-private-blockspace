@@ -1,8 +1,9 @@
 """Refresh the pool tag table from the public mempool.space pool list.
 
-`pools.py` ships a built-in table that covers 2023-2026, but pools change
-their coinbase tags. This script downloads the public list and writes
-`pools_known.json`, which `pools.py` prefers when it exists.
+Pools change their coinbase tags, so the table is downloaded rather than
+kept by hand. This script writes `pools_known.json`, the one source
+`pools.py` reads. Nothing attributes a block until it has run once, and the
+file it writes is committed so a checkout can run the pipeline.
 
 Each entry also keeps the upstream `id`, mempool.space's `poolUniqueId`.
 That is the id the acceleration table stores in `mined_by_pool_unique_id`
@@ -88,10 +89,13 @@ def main():
     fresh = convert(fetch(args.url))
     if not fresh:
         raise SystemExit("the downloaded list held no usable pools; "
-                         "keeping the built-in table")
+                         "leaving pools_known.json as it is")
 
     with_id = sum(1 for entry in fresh.values() if "id" in entry)
-    current = {name for name, _t, _a in pools.load_pools()}
+    try:
+        current = {name for name, _t, _a in pools.load_pools()}
+    except RuntimeError:
+        current = set()  # the first run, with no pool list on disk yet
     added = sorted(set(fresh) - current)
     dropped = sorted(current - set(fresh))
     print(f"{len(fresh)} pools upstream, {len(current)} in use, "

@@ -13,6 +13,8 @@ import json
 import os
 import sys
 
+import pytest
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import pools
@@ -120,3 +122,37 @@ def test_writing_the_id_map_leaves_coinbase_attribution_alone(tmp_path,
         ("AntPool", ["/AntPool/"], []),
         ("Foundry USA", ["/Foundry USA Pool"], ["bc1qfoundry"]),
     ]
+
+
+# --- the downloaded file is the only source -----------------------------
+
+def test_the_downloaded_file_is_the_whole_table(tmp_path, monkeypatch):
+    """No hand-kept second copy: what was downloaded is what is matched."""
+    _write_known(tmp_path, monkeypatch, LIST_PAYLOAD)
+    sql = pools.tag_struct_sql()
+    assert sql.count("STRUCT(") == 2
+    assert "'/antpool/' AS tag" in sql
+
+
+def test_a_missing_file_says_what_to_run(tmp_path, monkeypatch):
+    """Attribution must fail loudly, not quietly call every block Unknown."""
+    monkeypatch.setattr(pools, "_JSON_PATH", str(tmp_path / "absent.json"))
+    with pytest.raises(RuntimeError, match="refresh_pools.py"):
+        pools.load_pools()
+
+
+def test_an_empty_file_says_what_to_run(tmp_path, monkeypatch):
+    path = tmp_path / "pools_known.json"
+    path.write_text("{}")
+    monkeypatch.setattr(pools, "_JSON_PATH", str(path))
+    with pytest.raises(RuntimeError, match="refresh_pools.py"):
+        pools.load_pools()
+
+
+def test_the_committed_file_is_present_and_usable():
+    """The checked-in table is what a fresh clone runs on."""
+    names = [name for name, _t, _a in pools.load_pools()]
+    assert len(names) > 100
+    assert "Foundry USA" in names and "AntPool" in names
+    assert pools.load_pool_ids()[111] == "Foundry USA"
+    assert pools.load_pool_ids()[44] == "AntPool"
