@@ -4,7 +4,7 @@ Writes to `${OUT_DIR}` (default `out/`):
 
     monthly_summary.csv      per month: flagged space, share, value bands
     pool_summary.csv         the same per pool
-    flag_a_sensitivity.csv   the 3x3 threshold grid
+    low_fee_sensitivity.csv   the 3x3 threshold grid
     flagged_txs_sample.csv   the 5,000 largest flagged transactions
     headline.json            the numbers quoted in the write-up
     summary.md               a readable digest of all of the above
@@ -13,7 +13,7 @@ Writes to `${OUT_DIR}` (default `out/`):
 run. The BigQuery working dataset holds only that month's tables (each
 pipeline step is a `CREATE OR REPLACE TABLE`), so it merges the fresh month
 into the existing local files instead of overwriting them: `monthly_summary`
-and `pool_summary` are keyed by month, `flag_a_sensitivity` sums across
+and `pool_summary` are keyed by month, `low_fee_sensitivity` sums across
 months per grid cell, and `flagged_txs_sample` keeps the largest 5,000 seen
 across all runs so far. The BigQuery dataset can then be dropped with
 `delete_dataset.py` before the next month runs.
@@ -32,10 +32,10 @@ TABLES = {
     "monthly_summary": "SELECT * FROM `${dst}.monthly_summary` ORDER BY block_month",
     "pool_summary": "SELECT * FROM `${dst}.pool_summary` "
                     "ORDER BY block_month, flagged_vbytes_50 DESC",
-    "flag_a_sensitivity": "SELECT * FROM `${dst}.flag_a_sensitivity` "
+    "low_fee_sensitivity": "SELECT * FROM `${dst}.low_fee_sensitivity` "
                           "ORDER BY sensitivity, full_weight",
     "flagged_txs_sample": "SELECT * FROM `${dst}.flagged_txs` "
-                          "WHERE flag_a_50 ORDER BY upper_band_sats DESC LIMIT 5000",
+                          "WHERE low_fee_50 ORDER BY upper_band_sats DESC LIMIT 5000",
 }
 
 
@@ -197,8 +197,8 @@ def export_month(out_dir):
         "pool_summary": _merge_by_key(
             _load(out_dir, "pool_summary"), fresh["pool_summary"],
             ["block_month", "pool_name"]),
-        "flag_a_sensitivity": _merge_sensitivity(
-            _load(out_dir, "flag_a_sensitivity"), fresh["flag_a_sensitivity"]),
+        "low_fee_sensitivity": _merge_sensitivity(
+            _load(out_dir, "low_fee_sensitivity"), fresh["low_fee_sensitivity"]),
         "flagged_txs_sample": _merge_top_k(
             _load(out_dir, "flagged_txs_sample"), fresh["flagged_txs_sample"],
             "upper_band_sats"),
@@ -209,7 +209,7 @@ def export_month(out_dir):
         print(f"  {path}  {len(df)} rows")
 
     write_summary(out_dir, merged["monthly_summary"],
-                  merged["flag_a_sensitivity"], merged["pool_summary"])
+                  merged["low_fee_sensitivity"], merged["pool_summary"])
 
 
 def main():
@@ -223,7 +223,7 @@ def main():
     frames = {name: export_table(name, sql, args.out)
               for name, sql in TABLES.items()}
     write_summary(args.out, frames["monthly_summary"],
-                  frames["flag_a_sensitivity"], frames["pool_summary"])
+                  frames["low_fee_sensitivity"], frames["pool_summary"])
 
 
 if __name__ == "__main__":

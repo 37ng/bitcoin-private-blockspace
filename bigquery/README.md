@@ -3,8 +3,9 @@
 One question: how much block space changed hands below the public price, in
 blocks where space was actually scarce?
 
-Everything runs from `run_pipeline.py`. Step 01 reads the public dataset once
-(~300 GB); every later step works on local tables and costs cents.
+Everything runs from `run_pipeline.py`, one month per run. Step 01 reads that
+month's partition of the public dataset (~25 GB); every later step works on
+local tables.
 
 ```
 01_tx_base       one pass over crypto_bitcoin.transactions
@@ -16,7 +17,7 @@ Everything runs from `run_pipeline.py`. Step 01 reads the public dataset once
 05_block_floor   p05 of the effective rates in each block
 05b_update       floor = median of the p05 of b-3..b-1, b+1..b+3
 06a_fullness     which blocks were full, and had full neighbours
-06b_flag_low_fee Flag A at 0.3 / 0.5 / 0.7 of the floor
+06b_flag_low_fee low-fee flag at 0.3 / 0.5 / 0.7 of the floor
 07_revenue       the two value bands per flagged transaction
 07b_monthly      the monthly answer
 07c_pool         the same answer per pool
@@ -54,8 +55,8 @@ tests, each against the rules in force on the day of the block:
 The fee-rate test carries one carve-out: a sub-minimum parent with a paying
 child in the same block is ordinary CPFP, not a private deal, and after Core 28
 (2024-10-04) 1p1c package relay propagates it publicly. Only a sub-minimum
-transaction with no paying in-block child is unambiguously non-relayable.
-`flag_sub_minrelay_raw` keeps the uncarved version for comparison.
+transaction with no paying in-block child is unambiguously non-relayable, so
+that is what `flag_sub_minrelay` records.
 
 **A discount only counts where space was scarce.** In a block with room to
 spare, a cheap transaction costs nobody anything. A block counts as full at
@@ -77,11 +78,9 @@ condition is what separates sustained demand from one busy minute.
 
 ## Cost
 
-| | scanned | cost |
-|---|---|---|
-| step 01, full window | ~300 GB | ~$1.85 |
-| every later step, full window | ~250 GB | ~$1.60 |
-| one month, end to end (`--month`) | ~25 GB | ~$0.15 |
+A run covers one month. End to end it scans about 25 GB, near $0.15 at
+on-demand pricing. Step 01 is the only step that reads the public dataset;
+every later step reads the local tables the run just built.
 
 `tx_base` and `txs` are partitioned by month and clustered by block number;
 `blocks` and the summary tables are small enough to need neither.
@@ -96,8 +95,8 @@ The source dataset is partitioned by month and the pipeline aggregates by
 month, so the normal way to run this is one month per invocation:
 
 ```bash
-python run_pipeline.py --month 2023-04
-python delete_dataset.py
+uv run python run_pipeline.py --month 2023-04
+uv run python delete_dataset.py
 ```
 
 `--month` runs the full step list for that month, then exports it into
@@ -117,8 +116,8 @@ history is slow to (re)fetch and worth keeping, so `delete_dataset.py` — which
 only ever touches `BQ_DATASET` — cannot take it out between months.
 
 ```bash
-python fetch_accelerations.py   # crawl mempool.space, load accelerations.accelerations
-python run_accelerations.py     # build the summary tables from it
+uv run python fetch_accelerations.py  # crawl mempool.space, load accelerations.accelerations
+uv run python run_accelerations.py    # build the summary tables from it
 ```
 
 `run_accelerations.py`'s steps live in `sql/accelerations/`, apart from the
@@ -162,8 +161,9 @@ attribution is broken and every per-pool number is worthless. It also lists the
 coinbase text of unattributed blocks, which is how a missing tag is found.
 
 `validate_against_mempool.py` samples flagged blocks and compares them against
-mempool.space block audits. `addedTxs` is a presence measure and Flag A is a
-price measure, so partial overlap is the expected result. Transactions that
+mempool.space block audits. `addedTxs` is a presence measure and the low-fee
+flag is a price measure, so partial overlap is the expected result.
+Transactions that
 appear in `acceleratedTxs` were bought out of band through a public service:
 they confirm the mechanism, and they are the part of the count that was never
 invisible.

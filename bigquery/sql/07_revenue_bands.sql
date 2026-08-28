@@ -31,13 +31,13 @@ SELECT
   b.floor_fee_rate,
   b.median_fee_rate,
   b.weight AS block_weight,
-  t.flag_a_30,
-  t.flag_a_50,
-  t.flag_a_70,
+  t.low_fee_30,
+  t.low_fee_50,
+  t.low_fee_70,
   -- Both expressions come from `config.LOWER_BAND_SATS` / `UPPER_BAND_SATS`,
   -- so step 07c computes the same thing without retyping it.
   ${lower_band_sats} AS lower_band_sats,
   ${upper_band_sats} AS upper_band_sats
 FROM `${dst}.txs` AS t
 JOIN `${dst}.blocks` AS b USING (block_number)
-WHERE t.flag_a_70   -- the widest flag; narrower ones are subsets
+WHERE t.low_fee_70   -- the widest flag; narrower ones are subsets

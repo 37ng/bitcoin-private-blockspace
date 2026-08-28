@@ -6,8 +6,9 @@ mempool.space keeps its own view of what a block should have contained. Its
     addedTxs        in the block but not in their expected template
     acceleratedTxs  paid for through their public acceleration service
 
-Neither is the same measurement as Flag A. `addedTxs` also holds latency and
-policy artifacts, while Flag A is about price, so the overlap is expected to be
+Neither is the same measurement as the low-fee flag. `addedTxs` also holds
+latency and policy artifacts, while the low-fee flag is about price, so the
+overlap is expected to be
 partial. It is reported as it comes out, not tuned.
 
 `acceleratedTxs` matters more: those transactions were paid for out of band
@@ -92,7 +93,7 @@ def main():
     parser.add_argument("--sensitivity", choices=["30", "50", "70"], default="50")
     args = parser.parse_args()
 
-    column = f"flag_a_{args.sensitivity}"
+    column = f"low_fee_{args.sensitivity}"
     blocks = sample_blocks(args.sample, column)
     if not blocks:
         print(f"no blocks with {column} above height {MIN_AUDITED_HEIGHT}")
@@ -141,8 +142,8 @@ def main():
           f"({total_in_added / total_flagged * 100:.1f}%)")
     print(f"  also in acceleratedTxs    {total_in_accelerated} "
           f"({total_in_accelerated / total_flagged * 100:.1f}%)")
-    print("\naddedTxs is a presence measure and Flag A is a price measure, so "
-          "partial overlap is the expected result, not a failure.")
+    print("\naddedTxs is a presence measure and the low-fee flag is a price "
+          "measure, so partial overlap is the expected result, not a failure.")
     print("Transactions in acceleratedTxs were bought out of band through a "
           "public service: they confirm the mechanism, and they are the part "
           "of the count that is not invisible.")

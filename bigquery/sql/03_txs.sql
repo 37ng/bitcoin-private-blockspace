@@ -21,8 +21,7 @@
 -- accepted such packages from the public mempool for years, and after Core 28
 -- (${package_relay_date}) 1p1c package relay propagates them across the
 -- network too. Only a sub-minimum transaction with no paying in-block child is
--- unambiguously non-relayable. `flag_sub_minrelay_raw` keeps the uncarved
--- version for comparison.
+-- unambiguously non-relayable, so that is what `flag_sub_minrelay` records.
 CREATE OR REPLACE TABLE `${dst}.txs`
 PARTITION BY block_month
 CLUSTER BY block_number
@@ -92,8 +91,6 @@ SELECT
     AS flag_op_return,
   (NOT b.is_coinbase AND b.virtual_size > ${max_standard_vsize})
     AS flag_oversized,
-  (NOT b.is_coinbase AND b.raw_fee_rate < b.min_relay_rate)
-    AS flag_sub_minrelay_raw,
   (NOT b.is_coinbase AND b.raw_fee_rate < b.min_relay_rate
      AND NOT COALESCE(c.has_paying_child, FALSE))
     AS flag_sub_minrelay,
@@ -119,10 +116,10 @@ SELECT
   IF(p.tx_hash IS NULL AND c.tx_hash IS NULL AND NOT b.is_coinbase,
      1, NULL) AS package_tx_count,
 
-  -- Flag A, filled by step 08
-  CAST(NULL AS BOOL) AS flag_a_30,
-  CAST(NULL AS BOOL) AS flag_a_50,
-  CAST(NULL AS BOOL) AS flag_a_70
+  -- the low-fee flags, filled by step 06b
+  CAST(NULL AS BOOL) AS low_fee_30,
+  CAST(NULL AS BOOL) AS low_fee_50,
+  CAST(NULL AS BOOL) AS low_fee_70
 FROM base AS b
 LEFT JOIN parent_agg AS p USING (tx_hash)
 LEFT JOIN child_agg AS c USING (tx_hash)

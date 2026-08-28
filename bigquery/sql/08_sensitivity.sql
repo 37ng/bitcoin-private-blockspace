@@ -4,7 +4,7 @@
 -- of a full block. Read this before quoting any headline: a number that moves
 -- by an order of magnitude across the grid is a statement about the cut-offs,
 -- not about private blockspace.
-CREATE OR REPLACE TABLE `${dst}.flag_a_sensitivity`
+CREATE OR REPLACE TABLE `${dst}.low_fee_sensitivity`
 OPTIONS (description = "Flagged space across the sensitivity x fullness grid.")
 AS
 WITH grid AS (

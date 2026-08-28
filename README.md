@@ -19,10 +19,9 @@ the assumptions, and what the numbers do and do not say.
 uv sync
 gcloud auth application-default login
 cd bigquery
-uv run python -m pytest tests/ -q         # offline, no credentials needed
-uv run python run_pipeline.py --dry-run   # what each step would scan
-uv run python run_pipeline.py --smoke 2023-04   # one month end to end
-uv run python run_pipeline.py             # the full window
+uv run python -m pytest tests/ -q              # offline, no credentials needed
+uv run python run_pipeline.py --dry-run        # what each step would scan
+uv run python run_pipeline.py --month 2023-04  # one month, end to end
 ```
 
 Then validate and write the outputs:
@@ -37,7 +36,7 @@ uv run python export_results.py           # CSVs, headline.json, summary.md
 
 Three numbers are reported at every sensitivity (0.3, 0.5, 0.7), not one. The
 threshold decides how much of a discount counts as a discount, and a finding
-that exists only at 0.7 is a finding about the threshold. `flag_a_sensitivity`
+that exists only at 0.7 is a finding about the threshold. `low_fee_sensitivity`
 crosses the three sensitivities with three definitions of a full block; read it
 before quoting anything.
 

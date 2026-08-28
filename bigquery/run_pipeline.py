@@ -2,7 +2,6 @@
 
     python run_pipeline.py --dry-run          # what each step would scan
     python run_pipeline.py --month 2023-04    # one month, end to end, ~$0.15
-    python run_pipeline.py                    # the full window
     python run_pipeline.py --from 05_block_floor
 
 The source dataset is partitioned by month, and the pipeline aggregates by
@@ -11,9 +10,9 @@ writes its month into the local `out/` files and leaves the BigQuery working
 dataset in place; delete it with `delete_dataset.py` once the local files
 hold what you need.
 
-Step 01 is the only expensive step: it reads ~300 GB of the public dataset
-once and everything after it works on local tables. The run asks before
-spending unless `--yes` is given.
+Step 01 is the only step that touches the public dataset. It reads that one
+month's partition, about 25 GB, and everything after it works on local tables.
+The run asks before spending unless `--yes` is given.
 """
 
 import argparse
@@ -35,7 +34,7 @@ STEPS = [
     ("05_block_floor", "sql", "p05 effective rate per block"),
     ("05b_update_block_floor", "sql", "neighbour median floor onto blocks"),
     ("06a_block_fullness", "sql", "which blocks were full"),
-    ("06b_flag_low_fee", "sql", "Flag A at 0.3 / 0.5 / 0.7"),
+    ("06b_flag_low_fee", "sql", "low-fee flag at 0.3 / 0.5 / 0.7"),
     ("07_revenue_bands", "sql", "flagged transactions and their bands"),
     ("07b_monthly_summary", "sql", "the monthly answer"),
     ("07c_pool_summary", "sql", "the same answer per pool"),
@@ -58,7 +57,7 @@ CHECKS = [
      "WHERE b.floor_fee_rate IS NOT NULL AND p.block_number IS NULL", 0),
     ("flagged transactions that are non-relayable",
      "SELECT COUNT(*) FROM `${dst}.txs` "
-     "WHERE flag_a_70 AND is_nonrelayable", 0),
+     "WHERE low_fee_70 AND is_nonrelayable", 0),
 ]
 
 
@@ -137,7 +136,7 @@ def headline():
           f"{row['vbytes_70'] / 1e9:,.2f} GvB")
     print(f"  value              {row['lower_btc']:,.2f} - "
           f"{row['upper_btc']:,.2f} BTC")
-    print("  read flag_a_sensitivity before quoting any of this")
+    print("  read low_fee_sensitivity before quoting any of this")
 
 
 def main():

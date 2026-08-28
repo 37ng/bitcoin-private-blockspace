@@ -5,9 +5,10 @@
 -- `sanity_check.py`: if a pool's block share does not match public hashrate
 -- data, its row here is meaningless.
 --
--- The denominator is `config.FULL_AND_PRICED`, the same test step 07b uses.
--- A full block without a floor can hold no flagged transaction, so counting
--- it here would only push every pool's share down.
+-- The denominator is `config.COUNTABLE_SPACE`, the same test step 07b uses.
+-- A full block without a floor, and any non-relayable transaction, can hold or
+-- be no flagged transaction, so counting either here would only push every
+-- pool's share down.
 CREATE OR REPLACE TABLE `${dst}.pool_summary`
 OPTIONS (description = "Flagged space and value by pool, per month and overall.")
 AS
@@ -17,13 +18,13 @@ WITH per_pool AS (
     t.block_month,
     COUNT(DISTINCT b.block_number) AS blocks,
     SUM(t.virtual_size) AS vbytes,
-    COUNTIF(t.flag_a_50) AS flagged_txs_50,
-    SUM(IF(t.flag_a_50, t.virtual_size, 0)) AS flagged_vbytes_50,
-    SUM(IF(t.flag_a_30, t.virtual_size, 0)) AS flagged_vbytes_30,
-    SUM(IF(t.flag_a_70, t.virtual_size, 0)) AS flagged_vbytes_70,
-    SUM(IF(t.flag_a_50, ${lower_band_sats}, 0)) AS lower_band_sats_50,
-    SUM(IF(t.flag_a_50, ${upper_band_sats}, 0)) AS upper_band_sats_50,
-    SUM(IF(${full_and_priced}, t.virtual_size, 0)) AS full_block_vbytes
+    COUNTIF(t.low_fee_50) AS flagged_txs_50,
+    SUM(IF(t.low_fee_50, t.virtual_size, 0)) AS flagged_vbytes_50,
+    SUM(IF(t.low_fee_30, t.virtual_size, 0)) AS flagged_vbytes_30,
+    SUM(IF(t.low_fee_70, t.virtual_size, 0)) AS flagged_vbytes_70,
+    SUM(IF(t.low_fee_50, ${lower_band_sats}, 0)) AS lower_band_sats_50,
+    SUM(IF(t.low_fee_50, ${upper_band_sats}, 0)) AS upper_band_sats_50,
+    SUM(IF(${countable_space}, t.virtual_size, 0)) AS full_block_vbytes
   FROM `${dst}.txs` AS t
   JOIN `${dst}.blocks` AS b USING (block_number)
   WHERE NOT t.is_coinbase

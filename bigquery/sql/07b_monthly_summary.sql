@@ -2,7 +2,10 @@
 --
 -- `private_vbytes_share` is the headline: the fraction of block space in full
 -- blocks that changed hands below the public price. The denominator is
--- vbytes in full blocks only, since only there is a discount meaningful.
+-- `config.COUNTABLE_SPACE`: vbytes in full, priced blocks only, since only
+-- there is a discount meaningful, and relayable only, to match a numerator
+-- that can never contain non-relayable space. Non-relayable traffic is
+-- reported on its own rows below, against `all_vbytes`.
 CREATE OR REPLACE TABLE `${dst}.monthly_summary`
 OPTIONS (description = "Private blockspace and its value, per month, at each sensitivity.")
 AS
@@ -13,7 +16,7 @@ WITH full_block_totals AS (
     COUNT(*) AS full_block_txs
   FROM `${dst}.txs` AS t
   JOIN `${dst}.blocks` AS b USING (block_number)
-  WHERE ${full_and_priced} AND NOT t.is_coinbase
+  WHERE ${countable_space} AND NOT t.is_coinbase
   GROUP BY t.block_month
 ),
 all_totals AS (
@@ -25,18 +28,18 @@ all_totals AS (
 flagged AS (
   SELECT
     block_month,
-    COUNTIF(flag_a_30) AS txs_30,
-    COUNTIF(flag_a_50) AS txs_50,
-    COUNTIF(flag_a_70) AS txs_70,
-    SUM(IF(flag_a_30, virtual_size, 0)) AS vbytes_30,
-    SUM(IF(flag_a_50, virtual_size, 0)) AS vbytes_50,
-    SUM(IF(flag_a_70, virtual_size, 0)) AS vbytes_70,
-    SUM(IF(flag_a_50, lower_band_sats, 0)) AS lower_band_sats_50,
-    SUM(IF(flag_a_50, upper_band_sats, 0)) AS upper_band_sats_50,
-    SUM(IF(flag_a_30, lower_band_sats, 0)) AS lower_band_sats_30,
-    SUM(IF(flag_a_30, upper_band_sats, 0)) AS upper_band_sats_30,
-    SUM(IF(flag_a_70, lower_band_sats, 0)) AS lower_band_sats_70,
-    SUM(IF(flag_a_70, upper_band_sats, 0)) AS upper_band_sats_70
+    COUNTIF(low_fee_30) AS txs_30,
+    COUNTIF(low_fee_50) AS txs_50,
+    COUNTIF(low_fee_70) AS txs_70,
+    SUM(IF(low_fee_30, virtual_size, 0)) AS vbytes_30,
+    SUM(IF(low_fee_50, virtual_size, 0)) AS vbytes_50,
+    SUM(IF(low_fee_70, virtual_size, 0)) AS vbytes_70,
+    SUM(IF(low_fee_50, lower_band_sats, 0)) AS lower_band_sats_50,
+    SUM(IF(low_fee_50, upper_band_sats, 0)) AS upper_band_sats_50,
+    SUM(IF(low_fee_30, lower_band_sats, 0)) AS lower_band_sats_30,
+    SUM(IF(low_fee_30, upper_band_sats, 0)) AS upper_band_sats_30,
+    SUM(IF(low_fee_70, lower_band_sats, 0)) AS lower_band_sats_70,
+    SUM(IF(low_fee_70, upper_band_sats, 0)) AS upper_band_sats_70
   FROM `${dst}.flagged_txs`
   GROUP BY block_month
 ),

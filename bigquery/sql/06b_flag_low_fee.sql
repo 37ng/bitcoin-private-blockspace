@@ -1,4 +1,5 @@
--- Step 06b: Flag A — space that sold below the going rate in a full block.
+-- Step 06b: the low-fee flag — space that sold below the going rate in a
+-- full block.
 --
 -- A transaction is flagged when all of the following hold:
 --   its block is full (step 06a), so the space had a market price;
@@ -12,19 +13,19 @@
 -- the threshold, not about the chain.
 UPDATE `${dst}.txs` AS t
 SET
-  flag_a_30 = f.flag_a_30,
-  flag_a_50 = f.flag_a_50,
-  flag_a_70 = f.flag_a_70
+  low_fee_30 = f.low_fee_30,
+  low_fee_50 = f.low_fee_50,
+  low_fee_70 = f.low_fee_70
 FROM (
   SELECT
     x.tx_hash,
     x.block_number,
     COALESCE(b.is_full AND NOT x.is_nonrelayable AND NOT x.is_coinbase
-             AND x.effective_fee_rate < ${sens_low} * b.floor_fee_rate, FALSE) AS flag_a_30,
+             AND x.effective_fee_rate < ${sens_low} * b.floor_fee_rate, FALSE) AS low_fee_30,
     COALESCE(b.is_full AND NOT x.is_nonrelayable AND NOT x.is_coinbase
-             AND x.effective_fee_rate < ${sens_mid} * b.floor_fee_rate, FALSE) AS flag_a_50,
+             AND x.effective_fee_rate < ${sens_mid} * b.floor_fee_rate, FALSE) AS low_fee_50,
     COALESCE(b.is_full AND NOT x.is_nonrelayable AND NOT x.is_coinbase
-             AND x.effective_fee_rate < ${sens_high} * b.floor_fee_rate, FALSE) AS flag_a_70
+             AND x.effective_fee_rate < ${sens_high} * b.floor_fee_rate, FALSE) AS low_fee_70
   FROM `${dst}.txs` AS x
   JOIN `${dst}.blocks` AS b USING (block_number)
 ) AS f
