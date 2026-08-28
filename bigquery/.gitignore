@@ -1,3 +1,4 @@
 .cache/
 pools_known.json
 __pycache__/
+.claude/worktrees/

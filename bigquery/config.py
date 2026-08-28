@@ -192,6 +192,14 @@ USD_PER_TIB = 6.25
 OUT_DIR = os.environ.get("OUT_DIR", "out")
 CACHE_DIR = os.environ.get("CACHE_DIR", ".cache")
 
+# `out/` and `.cache/` are working directories and are gitignored. `data/` is
+# not: it holds the small, checked-in files that the write-up and any chart
+# read, so a reader can reproduce a figure without BigQuery credentials. It is
+# resolved from this file rather than the working directory, so a script run
+# from anywhere writes to the same place.
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DATA_DIR = os.environ.get("DATA_DIR", os.path.join(REPO_ROOT, "data"))
+
 
 def dst() -> str:
     """Fully qualified destination dataset."""

@@ -180,8 +180,14 @@ only ever touches `BQ_DATASET` — cannot take it out between months.
 ```bash
 uv run python fetch_accelerations.py          # top up: read only what is new
 uv run python fetch_accelerations.py --full   # re-crawl the whole history
+uv run python fetch_accelerations.py --since 2024-01-01 --until 2024-04-01
 uv run python run_accelerations.py            # build the summary tables from it
+uv run python export_accelerations.py         # write ../data/*.json for the write-up
 ```
+
+The steady state is one command: a top-up reads the page or two that is new.
+The backfill below is the one-off, and `export_accelerations.py --check` says
+how much of it is left.
 
 A top-up is the normal run. The history endpoint is newest-first and takes no
 `since` parameter, so the walk starts at page 1 and stops once it has read
@@ -206,6 +212,35 @@ Every walk reads `--overlap` pages beyond the new ones, and the stats call
 adds one request, so a top-up with nothing to fetch still costs three
 requests.
 
+### Fetching a range
+
+`--until` asks for a slice instead of a top-up: the records added between
+`--since` (the start of the history when left out) and `--until`. That four
+hour `--full` row is the reason the flag exists — a range can be fetched a
+month at a time, in any order, over as many sittings as it takes.
+
+Nothing has to be tracked between those sittings. A range is appended on the
+same `(txid, added)` key as a top-up, so a range already loaded costs a re-read
+and no rows, and overlapping ranges are safe to ask for. Only `--full` ever
+replaces the table.
+
+The entry page is the part that would otherwise be expensive: a range ending a
+year back sits ~600 pages down, and walking there costs one request per page
+passed. The list is sorted, so the entry page is found by halving the page
+range instead — about 10 requests for 600 pages, and the walk starts
+`--overlap` pages above what it finds. A three month range a year back
+therefore costs about 10 seek requests plus the ~75 pages it actually reads,
+not 675.
+
+The seek is safe for the reason the walk is. New records only push records
+towards higher page numbers, so a page measured during the seek can only have
+become newer by the time the walk reaches it — the walk then starts slightly
+too high, which costs a page, never a record.
+
+`--max-pages` counts walked pages only, so `--until X --max-pages 3` reads the
+first three pages of the range after seeking to it. That is the cheap way to
+check a range holds what you expect before paying for all of it.
+
 The pace is deliberately slower than the API forces. It publishes no rate
 limit, and at one request a second it pushed back constantly enough that the
 backoff, not the sleep, set the real rate — about 5 pages a minute either way.
@@ -228,13 +263,71 @@ Three properties make the partial walk safe, and all three are tested in
   Because `added` never changes, the same key also collapses a record the API
   returned twice.
 
-The load is `WRITE_APPEND` of what is missing, so a short or interrupted
-top-up can never shrink the table. Only `--full` replaces it.
+The load is `WRITE_APPEND` of what is missing, so a top-up, a range, or a run
+cut short by `--max-pages` can never shrink the table. Only a `--full` crawl
+that reached the end of the history replaces it.
 
 All of it rests on the list being append-only, which was checked rather than
 assumed: re-fetching a year of history nine days after the first load returned
 all 8,265 records with no field changed and none missing, and `x-total-count`
 has only ever risen.
+
+### What gets published, and when a month is allowed to count
+
+The unit of the analysis is a calendar month, so a month is either whole or it
+is not evidence. A partial August says nothing about August, and printing it
+beside a full July invites a comparison that is not there.
+`export_accelerations.py` writes `../data/accelerations_monthly.json` — small,
+in git, and read by the write-up instead of BigQuery, so a figure can be
+reproduced without credentials — and it puts a month in that file only when two
+things hold:
+
+- **the month has ended**, so no more records can arrive in it;
+- **the month has been read**, so some run actually walked the whole of it.
+
+The second is the one that needs machinery. Nothing in the rows distinguishes a
+month half fetched from a genuinely quiet month — both are just fewer records.
+So every run that loads also appends the span it read to
+`${accel_dst}.acceleration_coverage`, and the exporter merges those spans. A
+month is published when one merged span holds all of it.
+
+The first condition then needs no calendar rule of its own. Coverage ends when
+the last run *started*, and that instant is inside the current month, never past
+its end, so the current month fails the same test and keeps failing until a run
+happens in the following month. Both requirements fall out of one piece of
+arithmetic, which is what `tests/test_export_accelerations.py` pins down.
+
+The exporter separates the two reasons a month is held back, because they need
+different responses:
+
+```
+2026-08 is still filling (640 records so far) and is held back until it ends.
+
+=== 2 months with a gap ===
+  2026-01     210 records so far  needs 2026-01-01 to 2026-02-01
+  2026-02     480 records so far  needs 2026-02-01 to 2026-03-01
+
+The oldest gap first:
+  uv run python fetch_accelerations.py --since 2026-01-01 --until 2026-02-01
+```
+
+A filling month needs nothing — the next top-up finishes it. A gap needs a
+backfill, and the exporter prints the exact range. Work down that list and the
+backfill is done; after that, top-ups alone keep the file current.
+
+The file carries no generated-at stamp and is rewritten only when the numbers
+change, so a re-run of unchanged data produces no commit.
+
+**One-off, for a table loaded before the ledger existed:**
+
+```bash
+uv run python export_accelerations.py --seed-coverage
+```
+
+This claims the span between the oldest and newest loaded record as read. It is
+an assumption, not a measurement — true if that data came from full crawls and
+top-ups, false if a crawl was interrupted in the middle. Anything it gets wrong
+is fixed by re-fetching that range, which costs pages and no rows.
 
 `run_accelerations.py`'s steps live in `sql/accelerations/`, apart from the
 numbered `01`-`08` pipeline chain in `sql/`.
