@@ -1,8 +1,9 @@
 """BigQuery helpers: SQL templating, dry-run cost reports, job execution.
 
-Every step is a `.sql` file under `sql/`. Placeholders are `${name}` and are
-filled from `config.template_vars()` plus the pool tables built by `pools.py`,
-so a threshold written in `config.py` reaches the SQL without being retyped.
+Every step is a `.sql` file under `raw/sql/`. Placeholders are `${name}` and
+are filled from `config.template_vars()` plus the pool tables built by
+`pools.py`, so a threshold written in `config.py` reaches the SQL without
+being retyped.
 """
 
 import os
@@ -10,10 +11,12 @@ import string
 import sys
 import time
 
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "raw"))
+
 import config
 import pools
 
-SQL_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sql")
+SQL_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "raw", "sql")
 
 _client = None
 

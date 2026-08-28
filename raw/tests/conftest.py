@@ -23,6 +23,7 @@ import sys
 import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "utils"))
 
 # tx_hash, block, fee (sat), vsize (vB), parents
 FIXTURE_TXS = [

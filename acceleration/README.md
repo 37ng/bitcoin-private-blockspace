@@ -10,9 +10,9 @@ it out between months.
 
 `acceleration_by_pool.sql` joins against `${dst}.blocks` from `raw/`'s step
 02 for pool attribution, so run the `raw/` pipeline for a month before
-aggregating that month here. Both pipelines share `raw/config.py` and
-`raw/bqio.py` — this directory adds them to `sys.path` at import time rather
-than duplicating them.
+aggregating that month here. Both pipelines share `utils/config.py` and
+`utils/bqio.py` — this directory adds them to `sys.path` at import time
+rather than duplicating them.
 
 The three steps are separate on purpose. **Fetch** reads the API and stores
 records, forming no opinion about months. **Aggregate** totals them per month
