@@ -65,6 +65,13 @@ today is page 8 next week. Only `added` is stable enough to resume from.
 Pages are cached under `${CACHE_DIR}/accelerations/` for `--full` only, so an
 interrupted re-crawl resumes where it stopped. A top-up never reads the cache;
 seeing what the cache does not have is its whole job.
+
+Every run that loads also records the span it read into
+`${accel_dst}.acceleration_coverage`. The rows alone cannot say whether a month
+is finished -- a month half fetched and a quiet month look the same -- so
+`export_accelerations.py` reads that ledger to decide which months are whole
+enough to publish. A run cut short by `--max-pages` records only as far down as
+it actually reached.
 """
 
 import argparse
@@ -232,6 +239,15 @@ def utc(timestamp):
     return time.strftime("%Y-%m-%d %H:%M", time.gmtime(timestamp))
 
 
+def iso(timestamp):
+    """A unix timestamp as the string BigQuery reads as a TIMESTAMP.
+
+    Sent instead of unix seconds so the column type is obvious from the
+    payload rather than implied by the loader.
+    """
+    return time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(timestamp))
+
+
 def parse_time(text):
     """A `--since`/`--until` bound as a unix timestamp.
 
@@ -259,6 +275,10 @@ def page_is_old(batch, watermark):
 
 def accel_table():
     return f"{config.accel_dst()}.accelerations"
+
+
+def coverage_table():
+    return f"{config.accel_dst()}.acceleration_coverage"
 
 
 def watermark_from_bigquery():
@@ -413,6 +433,11 @@ def fetch_range(sleep, page_length, since, until, overlap, max_pages):
     -- while `in_window` decides the keeping, because a page can straddle
     either bound.
 
+    Returns the records and whether the walk reached the far end of the range.
+    A walk cut short by `--max-pages` holds a contiguous span ending at
+    `until`, but not the whole range, and the coverage ledger has to know the
+    difference.
+
     `--max-pages` counts walked pages only. The seek requests are not walking
     and there are about ten of them however long the range is.
     """
@@ -428,10 +453,12 @@ def fetch_range(sleep, page_length, since, until, overlap, max_pages):
 
     records, seen = [], set()
     read, old_pages, walked = 0, 0, 0
+    complete = True
 
     while True:
         if max_pages and walked >= max_pages:
             print(f"stopping at --max-pages {max_pages}")
+            complete = False
             break
 
         _, batch = get_json(API, {"page": page, "pageLength": page_length},
@@ -472,7 +499,24 @@ def fetch_range(sleep, page_length, since, until, overlap, max_pages):
 
     print(f"walked {walked} pages, read {read} records, "
           f"kept {len(records)} in range")
-    return records
+    return records, complete
+
+
+def covered_window(records, since, until, complete):
+    """The span this run can honestly claim to have read, or None.
+
+    A walk always goes downwards from `until`, so whatever it holds is a
+    contiguous span ending there. When it reached the far end it covers the
+    whole of `[since, until]`. When `--max-pages` cut it short it covers only
+    down to the oldest record it kept -- claiming the rest would let a half
+    read month be published later as a finished one.
+    """
+    if complete:
+        return since, until
+    added = [r["added"] for r in records if r.get("added")]
+    if not added:
+        return None
+    return min(added), until
 
 
 def normalise(record):
@@ -520,6 +564,49 @@ def schema():
     ]
 
 
+def coverage_schema():
+    from google.cloud import bigquery as bq
+    field = bq.SchemaField
+    return [
+        field("since", "TIMESTAMP", mode="REQUIRED"),
+        field("until", "TIMESTAMP", mode="REQUIRED"),
+        field("fetched_at", "TIMESTAMP", mode="REQUIRED"),
+        field("mode", "STRING"),
+        field("records", "INT64"),
+    ]
+
+
+def record_coverage(since, until, mode, n_records):
+    """Append the span this run read to `${accel_dst}.acceleration_coverage`.
+
+    The accelerations table cannot answer "is this month finished?" on its
+    own. A month half fetched holds fewer records than a month fully fetched,
+    and so does a genuinely quiet month -- nothing in the rows tells the two
+    apart. This ledger is the difference. It is what lets the export publish a
+    month only once some run has actually read all of it, instead of guessing
+    from row counts.
+
+    Rows are only ever appended, and overlapping spans are expected: the
+    export merges them. A run that loaded nothing still records its span,
+    because reading a stretch and finding it empty is also knowledge.
+    """
+    from google.cloud import bigquery as bq
+
+    import bqio
+
+    row = {"since": iso(since), "until": iso(until),
+           "fetched_at": iso(time.time()), "mode": mode,
+           "records": n_records}
+    job = bqio.client().load_table_from_json(
+        [row], coverage_table(),
+        job_config=bq.LoadJobConfig(schema=coverage_schema(),
+                                    write_disposition="WRITE_APPEND"),
+    )
+    job.result()
+    print(f"coverage: {utc(since)} to {utc(until)} UTC recorded as read "
+          f"({mode})")
+
+
 def load_to_bigquery(records, table="accelerations", append=False):
     """Write records to `${accel_dst}.accelerations`.
 
@@ -541,13 +628,10 @@ def load_to_bigquery(records, table="accelerations", append=False):
             print("nothing to append")
             return
     rows = [normalise(r) for r in records]
-    # Send timestamps as ISO strings rather than unix seconds, so the column
-    # type is obvious from the payload instead of implied by the loader.
     for row in rows:
         for key in ("added", "last_updated"):
             if row[key]:
-                row[key] = time.strftime("%Y-%m-%d %H:%M:%S",
-                                         time.gmtime(row[key]))
+                row[key] = iso(row[key])
 
     target = f"{config.accel_dst()}.{table}"
     disposition = "WRITE_APPEND" if append else "WRITE_TRUNCATE"
@@ -691,14 +775,21 @@ def main():
 
     stats = fetch_stats(args.sleep)
 
+    # Every walk reads page 1 at the start of the run, so the newest moment a
+    # run can claim to have seen is when it began, not when it ended. A
+    # four hour crawl would otherwise claim the records that arrived while it
+    # was running.
+    started = int(time.time())
+
     if until is not None:
         # A range. It is a slice of the history, so it is appended, never
         # written over the top of what other runs already loaded.
         since = since or 0
         print(f"fetching {utc(since)} to {utc(until)} UTC")
-        records = fetch_range(args.sleep, args.page_length, since, until,
-                              args.overlap, args.max_pages)
-        scope, append = f"{utc(since)} to {utc(until)} UTC", True
+        records, complete = fetch_range(args.sleep, args.page_length, since,
+                                        until, args.overlap, args.max_pages)
+        scope, append, mode = f"{utc(since)} to {utc(until)} UTC", True, "range"
+        covered = covered_window(records, since, min(until, started), complete)
     else:
         watermark = since if since is not None else None
         if watermark is None and not args.full:
@@ -713,12 +804,17 @@ def main():
             # A crawl stopped by --max-pages holds a fragment. Replacing the
             # table with it would throw away every record below the cut, so a
             # fragment appends like any other partial fetch.
-            append = not complete
+            append, mode = not complete, "full"
+            # A complete crawl reaches the start of the history, whenever that
+            # was, so its span opens at the epoch.
+            covered = covered_window(records, 0, started, complete)
         else:
             print(f"topping up from {utc(watermark)} UTC")
             records = fetch_new(args.sleep, args.page_length, watermark,
                                 args.overlap)
-            scope, append = "the newest records only", True
+            scope, append, mode = "the newest records only", True, "topup"
+            # A top-up stops itself; it always reaches its own watermark.
+            covered = (watermark, started)
 
     if not records:
         print("no records fetched")
@@ -735,6 +831,10 @@ def main():
 
     if not args.no_load:
         load_to_bigquery(records, append=append)
+        # Recorded only after the load succeeds. A span claimed for rows that
+        # never landed would let the export publish a month that is not there.
+        if covered:
+            record_coverage(covered[0], covered[1], mode, len(records))
     return 0
 
 
