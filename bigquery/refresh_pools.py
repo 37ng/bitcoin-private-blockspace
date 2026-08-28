@@ -22,13 +22,10 @@ attribution move.
 import argparse
 import json
 import os
-
 import requests
-
 import pools
 
-SOURCE = ("https://raw.githubusercontent.com/mempool/mining-pools/master/"
-          "pools-v2.json")
+SOURCE = "https://raw.githubusercontent.com/mempool/mining-pools/master/pools-v2.json"
 
 
 def fetch(url):
