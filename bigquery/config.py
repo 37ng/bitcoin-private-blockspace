@@ -61,11 +61,22 @@ if MONTH:
 # A transaction is "non-relayable" when a default-configured node of the day
 # would refuse to relay it. Such a transaction cannot reach a miner through
 # the public mempool, so it did not buy its block space in the public auction.
+#
+# Every rule below is gated on the release date of the Core version that
+# changed it, and the rule in force on the day of the block is the only one
+# applied. When a release loosens a rule, transactions the old rule would have
+# caught are treated as relayable from the release date on, even though most
+# of the network had not upgraded yet. When a release tightens one, the new
+# rule starts on the release date. Anything the rule in force does not
+# unambiguously reject stays out of the flags.
 
-# Core v30 (2025-10-08) removed the OP_RETURN datacarrier limit.
+# Core v30 (2025-10-08) raised the OP_RETURN datacarrier limit to the standard
+# transaction size, made the limit apply to the sum of the OP_RETURN
+# scriptPubKeys in a transaction rather than to each one, and dropped the
+# one-OP_RETURN-per-transaction rule.
 DATACARRIER_LIFT_DATE = "2025-10-08"
 DATACARRIER_LIMIT_BEFORE = 83      # bytes of scriptPubKey (OP_RETURN + 80 data)
-DATACARRIER_LIMIT_AFTER = 100_000  # bytes
+DATACARRIER_LIMIT_AFTER = 100_000  # bytes, summed over the OP_RETURN outputs
 
 # Core 29.1 (2025-09-04) lowered the default minimum relay fee.
 MIN_RELAY_CHANGE_DATE = "2025-09-04"
@@ -78,11 +89,53 @@ MIN_RELAY_AFTER = 0.1   # sat/vB
 # because miner-side CPFP mempool policy predates package relay.
 PACKAGE_RELAY_DATE = "2024-10-04"
 
+# Core 28 also made version 3 (TRUC, BIP 431) transactions standard, on the
+# same day. Before it, only versions 1 and 2 were standard.
+TRUC_STANDARD_DATE = PACKAGE_RELAY_DATE
+TX_VERSION_MIN = 1
+TX_VERSION_MAX_BEFORE = 2
+TX_VERSION_MAX_AFTER = 3
+
+# TRUC's own limits, in force from the same date, for version 3 transactions.
+TRUC_VERSION = 3
+TRUC_MAX_VSIZE = 10_000        # a version 3 transaction
+TRUC_CHILD_MAX_VSIZE = 1_000   # ...one that spends an unconfirmed output
+TRUC_ANCESTOR_LIMIT = 2        # itself plus at most one unconfirmed ancestor
+
+# Core 29.0 (2025-04-15) allowed one "ephemeral" dust output: a transaction
+# may carry a single dust output if it pays no fee and a child spends the dust
+# in the same package. Before it, any dust output was non-standard.
+EPHEMERAL_DUST_DATE = "2025-04-15"
+MAX_DUST_OUTPUTS_BEFORE = 0
+MAX_DUST_OUTPUTS_AFTER = 1
+
+# Dust is an output worth less than it costs to spend, priced at the dust
+# relay fee. The spend cost is the size of the input that would spend it:
+# 148 bytes for a legacy output, 67 for a witness one (the 75% discount).
+DUST_RELAY_FEE_SAT_PER_KVB = 3_000
+DUST_SPEND_COST_LEGACY = 148
+DUST_SPEND_COST_WITNESS = 67
+# A script this long can never be spent, so its outputs are never dust.
+MAX_SCRIPT_SIZE = 10_000
+
+# Core 31.0 (2026-04-20) replaced the ancestor and descendant limits with
+# cluster limits: a connected component of the mempool may hold 64
+# transactions and 101 kvB. A cluster over that limit says that some member
+# was refused, but not which one, so nothing is flagged from that date on.
+CLUSTER_MEMPOOL_DATE = "2026-04-20"
+ANCESTOR_LIMIT = 25            # the transaction plus its unconfirmed ancestors
+ANCESTOR_SIZE_LIMIT_VB = 101_000
+
 # Standard transaction size ceiling: 400,000 WU == 100,000 vB.
 MAX_STANDARD_VSIZE = 100_000
+# ...and its floor: a transaction under 65 non-witness bytes is non-standard.
+MIN_STANDARD_NONWITNESS_SIZE = 65
 
 # Bare multisig is standard up to 3 pubkeys.
 BARE_MULTISIG_MAX_N = 3
+
+# The scriptSig of every input must fit in this, and must be push-only.
+MAX_STANDARD_SCRIPTSIG_SIZE = 1_650
 
 # --- Block floor and fullness --------------------------------------------
 
@@ -167,8 +220,28 @@ def template_vars() -> dict:
         "min_relay_before": MIN_RELAY_BEFORE,
         "min_relay_after": MIN_RELAY_AFTER,
         "package_relay_date": PACKAGE_RELAY_DATE,
+        "truc_standard_date": TRUC_STANDARD_DATE,
+        "tx_version_min": TX_VERSION_MIN,
+        "tx_version_max_before": TX_VERSION_MAX_BEFORE,
+        "tx_version_max_after": TX_VERSION_MAX_AFTER,
+        "truc_version": TRUC_VERSION,
+        "truc_max_vsize": TRUC_MAX_VSIZE,
+        "truc_child_max_vsize": TRUC_CHILD_MAX_VSIZE,
+        "truc_ancestor_limit": TRUC_ANCESTOR_LIMIT,
+        "ephemeral_dust_date": EPHEMERAL_DUST_DATE,
+        "max_dust_outputs_before": MAX_DUST_OUTPUTS_BEFORE,
+        "max_dust_outputs_after": MAX_DUST_OUTPUTS_AFTER,
+        "dust_relay_fee": DUST_RELAY_FEE_SAT_PER_KVB,
+        "dust_spend_cost_legacy": DUST_SPEND_COST_LEGACY,
+        "dust_spend_cost_witness": DUST_SPEND_COST_WITNESS,
+        "max_script_size": MAX_SCRIPT_SIZE,
+        "cluster_mempool_date": CLUSTER_MEMPOOL_DATE,
+        "ancestor_limit": ANCESTOR_LIMIT,
+        "ancestor_size_limit_vb": ANCESTOR_SIZE_LIMIT_VB,
         "max_standard_vsize": MAX_STANDARD_VSIZE,
+        "min_standard_nonwitness_size": MIN_STANDARD_NONWITNESS_SIZE,
         "bare_multisig_max_n": BARE_MULTISIG_MAX_N,
+        "max_standard_scriptsig_size": MAX_STANDARD_SCRIPTSIG_SIZE,
         "floor_percentile": FLOOR_PERCENTILE,
         "block_weight_full": BLOCK_WEIGHT_FULL,
         "full_neighbours_required": FULL_NEIGHBOURS_REQUIRED,

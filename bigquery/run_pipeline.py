@@ -1,7 +1,7 @@
 """Run the private-blockspace pipeline.
 
     python run_pipeline.py --dry-run          # what each step would scan
-    python run_pipeline.py --month 2023-04    # one month, end to end, ~$0.15
+    python run_pipeline.py --month 2023-04    # one month, end to end, ~$0.18
     python run_pipeline.py --from 05_block_floor
 
 The source dataset is partitioned by month, and the pipeline aggregates by
@@ -11,7 +11,7 @@ dataset in place; delete it with `delete_dataset.py` once the local files
 hold what you need.
 
 Step 01 is the only step that touches the public dataset. It reads that one
-month's partition, about 25 GB, and everything after it works on local tables.
+month's partition, about 29 GB, and everything after it works on local tables.
 The run asks before spending unless `--yes` is given.
 """
 
@@ -31,6 +31,7 @@ STEPS = [
     ("04a_in_package", "sql", "working set for the union-find pass"),
     ("04b_union_find", "python", "package fee rates, in Python"),
     ("04c_update_effective_fee", "sql", "write package rates onto txs"),
+    ("04d_update_ancestor_limit", "sql", "the ancestor-limit relay flag"),
     ("05_block_floor", "sql", "p05 effective rate per block"),
     ("05b_update_block_floor", "sql", "neighbour median floor onto blocks"),
     ("06a_block_fullness", "sql", "which blocks were full"),
@@ -58,6 +59,16 @@ CHECKS = [
     ("flagged transactions that are non-relayable",
      "SELECT COUNT(*) FROM `${dst}.txs` "
      "WHERE low_fee_70 AND is_nonrelayable", 0),
+    ("transactions whose is_nonrelayable disagrees with its flags",
+     "SELECT COUNT(*) FROM `${dst}.txs` WHERE is_nonrelayable != ("
+     "  flag_nonstandard_script OR flag_bare_multisig OR flag_op_return"
+     "  OR flag_multi_op_return OR flag_dust OR flag_version OR flag_truc"
+     "  OR flag_oversized OR flag_undersized OR flag_scriptsig_size"
+     "  OR flag_scriptsig_nonpush OR flag_sub_minrelay"
+     "  OR flag_ancestor_limit)", 0),
+    ("non-relayable coinbase transactions",
+     "SELECT COUNT(*) FROM `${dst}.txs` "
+     "WHERE is_coinbase AND is_nonrelayable", 0),
 ]
 
 
