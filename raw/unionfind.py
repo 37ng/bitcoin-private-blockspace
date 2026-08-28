@@ -1,22 +1,3 @@
-"""Union-find over the in-block CPFP graph.
-
-A child that pays for its parent means the two moved at one price, so the
-fee rate belongs to the package, not to either transaction. The graph is
-undirected: any set of transactions joined by parent/child edges inside one
-block collapses to a single package, whatever the shape — a chain, a fan of
-children on one parent, or several parents funded by one child. A transaction
-with no in-block relative is a package of one.
-
-The same pass also walks the graph in its directed form, upwards, to count
-each transaction's in-block ancestors. Mempool policy caps how many
-unconfirmed ancestors a transaction may have, and transactions confirmed in
-one block were all unconfirmed at the same moment, so an over-long ancestor
-chain in a block is a chain no default node would have relayed. Step 04d
-turns the counts into a non-relayable reason.
-
-Pure Python, no BigQuery import, so the fixture tests run offline.
-"""
-
 from collections import defaultdict
 
 # Ancestor counting stops here. Every rule that reads the count only asks
@@ -28,7 +9,6 @@ ANCESTOR_CAP = 26
 
 
 class UnionFind:
-    """Disjoint-set over hashable items, with path compression by rank."""
 
     def __init__(self, items=()):
         self._parent = {}
@@ -64,7 +44,6 @@ class UnionFind:
         return ra
 
     def groups(self):
-        """{root: [members]} for every item seen."""
         out = defaultdict(list)
         for item in self._parent:
             out[self.find(item)].append(item)
@@ -72,20 +51,6 @@ class UnionFind:
 
 
 def package_transactions(txs, ancestor_cap=ANCESTOR_CAP):
-    """Group one block's transactions into CPFP packages.
-
-    `txs` is an iterable of objects or mappings with `tx_hash`, `fee`,
-    `virtual_size` and `parent_hashes`. Parent hashes that are not in this
-    block are ignored — a parent confirmed in an earlier block was bought
-    separately and shares no price with its child.
-
-    Returns a list of dicts, one per input transaction:
-        tx_hash, package_id, package_tx_count, package_fee, package_vsize,
-        effective_fee_rate, ancestor_count, ancestor_vsize
-
-    `package_id` is the smallest member hash, so the same block always yields
-    the same ids whatever order the rows arrive in.
-    """
     rows = [_as_row(t) for t in txs]
     by_hash = {r["tx_hash"]: r for r in rows}
     ancestors = ancestor_stats(by_hash, ancestor_cap)
@@ -119,18 +84,6 @@ def package_transactions(txs, ancestor_cap=ANCESTOR_CAP):
 
 
 def ancestor_stats(by_hash, cap=ANCESTOR_CAP):
-    """{tx_hash: (ancestor_count, ancestor_vsize)} over one block.
-
-    Both figures count the transaction itself, which is what the mempool
-    limits count. Only parents confirmed in the same block are followed: a
-    parent already confirmed does not count against an unconfirmed-ancestor
-    limit.
-
-    The walk stops at `cap` distinct ancestors, so a count that reaches the
-    cap means "at least this many" and the vbyte sum that comes with it is
-    partial. Every rule reading these is a "more than" test with a limit below
-    the cap, so a capped answer decides it either way.
-    """
     stats = {}
     for tx_hash, row in by_hash.items():
         seen = {tx_hash}
@@ -155,7 +108,6 @@ def ancestor_stats(by_hash, cap=ANCESTOR_CAP):
 
 
 def _as_row(tx):
-    """Accept dicts, BigQuery Rows, sqlite3.Row, or plain objects."""
     if isinstance(tx, dict):
         get = tx.get
     elif hasattr(tx, "keys"):          # sqlite3.Row, bigquery.Row

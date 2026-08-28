@@ -1,44 +1,3 @@
-"""Publish the finished months of the acceleration history to a file in git.
-
-    python export_accelerations.py            # write data/accelerations_monthly.json
-    python export_accelerations.py --check    # report and write nothing
-
-The write-up and any chart read this file, not BigQuery. It is small, it is
-versioned, and a reader can reproduce a figure from it without credentials.
-
-Only finished months go in. The unit of the analysis is a calendar month, so a
-month is either whole or it is not evidence: a partial August says nothing
-about August, and printing it beside a full July invites a comparison that is
-not there.
-
---- how a month is known to be finished -------------------------------------
-
-`fetch_accelerations.py` keeps the table as one contiguous run of the history,
-from some oldest record up to the newest, and enforces that on every fetch.
-So the two ends of the run are the two ends of what has been read, and there
-are no holes between them:
-
-    SELECT MIN(added), MAX(added) FROM accelerations
-
-A month is finished when the run covers all of it -- `MIN(added)` at or before
-the month starts, `MAX(added)` at or after it ends. That is the entire test,
-and it reads what has been fetched off the fetched data itself rather than off
-a ledger that could disagree with it.
-
-Both awkward months fall out of the same arithmetic rather than needing rules
-of their own. The newest month holds `MAX(added)` inside it, so it is never
-finished until a later month's records arrive. The oldest month holds
-`MIN(added)` inside it, so it stays out until `--back-to` extends the run past
-its start. Neither is a special case; both are just the test failing.
-
---- what counts as revenue --------------------------------------------------
-
-`acceleration_monthly.sql` totals only `completed` and `completed_provisional`
-records that were mined, cancelled or not. A cancellation is not a rollback:
-once a partner pool has the transaction in a block the payment is owed. Only
-`failed` earns nothing, and the fetcher never stores anything still in flight.
-"""
-
 import argparse
 import calendar
 import json
@@ -58,7 +17,6 @@ SATS = 100_000_000
 # --- the completeness rule; pure, and tested in tests/ -------------------
 
 def month_bounds(month):
-    """(start, end) of a "YYYY-MM" as unix seconds, end exclusive."""
     year, mon = int(month[:4]), int(month[5:7])
     start = calendar.timegm((year, mon, 1, 0, 0, 0, 0, 1, 0))
     end = calendar.timegm((year + mon // 12, mon % 12 + 1, 1, 0, 0, 0, 0, 1, 0))
@@ -66,12 +24,6 @@ def month_bounds(month):
 
 
 def is_complete(month, oldest, newest):
-    """True when the contiguous run covers the whole month.
-
-    Contiguity is what makes two numbers enough. Because everything between
-    `oldest` and `newest` has been read, a month inside that span has been read
-    in full -- there is no third thing to check.
-    """
     if oldest is None or newest is None:
         return False
     start, end = month_bounds(month)
@@ -79,12 +31,6 @@ def is_complete(month, oldest, newest):
 
 
 def hold_reason(month, oldest, newest):
-    """Why an unfinished month is out: "filling" or "before the run".
-
-    The two need different answers. A month at the top is still filling and the
-    next top-up finishes it, so there is nothing to do. A month below the start
-    of the run needs `--back-to` to reach it.
-    """
     start, end = month_bounds(month)
     if oldest is not None and start < oldest:
         return "before the run"
@@ -94,7 +40,6 @@ def hold_reason(month, oldest, newest):
 # --- reading what BigQuery holds ----------------------------------------
 
 def run_bounds():
-    """The two ends of the contiguous run, as unix seconds."""
     result = bqio.rows(
         f"SELECT UNIX_SECONDS(MIN(added)) AS oldest, "
         f"UNIX_SECONDS(MAX(added)) AS newest "
@@ -115,7 +60,6 @@ def monthly_rows():
 # --- the file -----------------------------------------------------------
 
 def build(rows, oldest, newest):
-    """(payload, held_back) -- the finished months, and why the rest are out."""
     months, held = [], []
     for r in rows:
         if not is_complete(r["month"], oldest, newest):
@@ -160,13 +104,6 @@ def build(rows, oldest, newest):
 
 
 def write(payload, path):
-    """Write only when the numbers changed.
-
-    The file is in git, so rewriting an identical one every run would fill the
-    history with commits that say nothing. There is no generated-at stamp in
-    the payload for the same reason: it would change on every run and make
-    every run look like new data.
-    """
     text = json.dumps(payload, indent=2) + "\n"
     if os.path.exists(path):
         with open(path) as fh:

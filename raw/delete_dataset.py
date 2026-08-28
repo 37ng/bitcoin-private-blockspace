@@ -1,15 +1,3 @@
-"""Delete the BigQuery working dataset.
-
-    python delete_dataset.py          # asks first
-    python delete_dataset.py --yes    # no prompt
-
-Run this after `export_results.py` (or `run_pipeline.py --month`) has
-written the month's numbers to local files. The working dataset only ever
-holds one month of intermediate tables, so deleting it between months keeps
-BigQuery storage at zero rather than growing forever; nothing here scans
-data, so it costs nothing to run.
-"""
-
 import argparse
 import os
 import sys

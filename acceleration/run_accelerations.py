@@ -1,15 +1,3 @@
-"""Build the acceleration summary tables.
-
-    python fetch_accelerations.py        # crawl mempool.space, load ${accel_dst}.accelerations
-    python run_accelerations.py          # build the summary tables from it
-    python run_accelerations.py --dry-run   # what each step would scan
-
-Kept apart from `run_pipeline.py`: the accelerations history comes from the
-mempool.space API, not `crypto_bitcoin`, and it lives in its own dataset
-(`${accel_dst}`) so `delete_dataset.py` -- which drops the pipeline's `${dst}`
-between months -- never takes it out with the disposable pipeline tables.
-"""
-
 import argparse
 import os
 import sys

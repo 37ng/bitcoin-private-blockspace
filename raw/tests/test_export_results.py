@@ -1,13 +1,3 @@
-"""The incremental export: does a second month add to the first?
-
-`out/` is tracked in git and built one month per run, so the merge is the
-part that has to be right. A month that double-counts, or a re-run that adds
-to itself instead of replacing itself, corrupts a file nobody rebuilds.
-
-These tests are pure Python. They never reach BigQuery: `merge_into()` takes
-the fetched frames as an argument, so the fixtures below stand in for them.
-"""
-
 import datetime
 import decimal
 import json
@@ -20,7 +10,6 @@ import export_results as ex
 
 
 def monthly(month, low_fee_vbytes=100, full=1000):
-    """One `monthly_summary` row, with only the columns the summary reads."""
     row = {
         "block_month": month,
         "all_txs": 10,
@@ -59,7 +48,6 @@ def sample(month, tx_hash, upper=500):
 
 
 def fetched(month, **kw):
-    """What one month's `fetch()` would return."""
     return {
         "monthly_summary": pd.DataFrame([monthly(month, **kw)]),
         "pool_summary": pd.DataFrame([pools(month)]),
@@ -85,17 +73,10 @@ def load(out_dir, name):
     (True, True),
 ])
 def test_json_safe_values(value, expected):
-    """A cell `json` cannot write is a cell the whole export dies on."""
     assert ex._json_safe(value) == expected
 
 
 def test_dates_survive_the_round_trip_as_keys(tmp_path):
-    """A date from BigQuery and a string from disk must compare equal.
-
-    They are the merge key. If the fresh frame holds `date(2023, 4, 1)` and
-    the file holds `"2023-04-01"`, no month is ever recognised as already
-    exported and every re-run appends a duplicate.
-    """
     fresh = ex.normalise(pd.DataFrame([{"block_month": datetime.date(2023, 4, 1)}]))
     ex.write_json(str(tmp_path), "t", fresh)
     assert set(ex.read_json(str(tmp_path), "t")["block_month"]) == \
@@ -122,7 +103,6 @@ def test_a_second_month_is_added_not_substituted(tmp_path):
 
 
 def test_rerunning_a_month_replaces_it(tmp_path):
-    """The same month twice is one month, at the second run's numbers."""
     out = str(tmp_path)
     ex.merge_into(out, fetched("2023-04", low_fee_vbytes=100))
     ex.merge_into(out, fetched("2023-04", low_fee_vbytes=250))
@@ -135,11 +115,6 @@ def test_rerunning_a_month_replaces_it(tmp_path):
 
 
 def test_a_rerun_does_not_double_the_sensitivity_grid(tmp_path):
-    """The grid holds sums, so this is the cell that silently doubles.
-
-    It is why step 08 groups by month: without a month on the row there is no
-    key to replace, and the only merge available is addition.
-    """
     out = str(tmp_path)
     ex.merge_into(out, fetched("2023-04"))
     after_one = ex.sensitivity_totals(ex.read_json(out, "low_fee_sensitivity"))
@@ -170,7 +145,6 @@ def test_replace_drops_the_months_on_disk(tmp_path):
 
 
 def test_an_empty_dataset_leaves_the_files_alone(tmp_path):
-    """A run that produced nothing must not blank a file it cannot rebuild."""
     out = str(tmp_path)
     ex.merge_into(out, fetched("2023-04"))
     before = load(out, "monthly_summary")
@@ -181,8 +155,6 @@ def test_an_empty_dataset_leaves_the_files_alone(tmp_path):
 
 
 def test_the_sample_keeps_the_largest_across_months():
-    """The cap is on the file, not on the run: a small new month can push out
-    a row an older month contributed."""
     on_disk = pd.DataFrame([sample("2023-04", "big", upper=900),
                             sample("2023-04", "small", upper=1)])
     fresh = pd.DataFrame([sample("2023-05", "mid", upper=500)])
@@ -202,7 +174,6 @@ def test_rerunning_a_month_drops_its_old_sample_rows():
 # --- the derived files ---------------------------------------------------
 
 def test_the_summary_covers_every_month_on_disk(tmp_path):
-    """`headline.json` is rewritten in full, not per run."""
     out = str(tmp_path)
     ex.merge_into(out, fetched("2023-04"))
     ex.merge_into(out, fetched("2023-05"))

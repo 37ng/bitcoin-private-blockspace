@@ -1,21 +1,3 @@
-"""The SQL steps: do they render, and does BigQuery accept them?
-
-Two layers, because they cost different things to run.
-
-  Rendering tests are pure Python. They need no credentials and no network,
-  so they run everywhere. They catch a placeholder that no longer resolves
-  and a formula that someone retyped instead of sharing.
-
-  Dry-run tests ask BigQuery to parse and plan each step. A dry run is free —
-  it scans nothing and is not billed — but it needs credentials, and it needs
-  the tables an earlier step builds. They are therefore opt-in:
-
-      BQ_DRY_RUN=1 pytest tests/test_sql_steps.py
-
-  A step whose input table is not built yet is skipped, not failed. Only a
-  query BigQuery rejects outright is a failure.
-"""
-
 import glob
 import os
 import re
@@ -44,25 +26,17 @@ requires_bigquery = pytest.mark.skipif(
 
 
 def test_sql_dir_is_not_empty():
-    """A glob that silently matches nothing would make every test below pass."""
     assert len(SQL_FILES) >= 13
 
 
 @pytest.mark.parametrize("name", SQL_FILES)
 def test_every_step_renders(name):
-    """No step carries a `${placeholder}` that `config` no longer defines."""
     sql = bqio.render(name)
     assert "${" not in sql
 
 
 @pytest.mark.parametrize("name", SQL_FILES)
 def test_filename_matches_its_step_label(name):
-    """A step's number in its filename is the number in its first line.
-
-    The two drifted apart once: the files were numbered 01-13 in run order
-    while the comments numbered them by stage, so `10_revenue_bands.sql`
-    opened with "Step 07".
-    """
     first_line = source(name).splitlines()[0]
     match = re.match(r"-- Step ([0-9a-z]+):", first_line)
     assert match is not None, f"{name} has no step label"
@@ -70,23 +44,12 @@ def test_filename_matches_its_step_label(name):
 
 
 def source(name):
-    """The step as written, before templating.
-
-    The rendered SQL cannot answer these questions: a hand-typed copy of a
-    formula renders byte-identical to the shared one. Only the source shows
-    whether the step referred to the constant or retyped it.
-    """
     with open(os.path.join(bqio.SQL_DIR, name)) as fh:
         return fh.read()
 
 
 @pytest.mark.parametrize("name", BAND_STEPS)
 def test_band_formula_comes_from_config(name):
-    """Both band steps must share one formula, not retype it.
-
-    Guards the drift between step 07 and step 07c: they computed the same two
-    bands from two copies of the same arithmetic.
-    """
     text = source(name)
     assert "${lower_band_sats}" in text
     assert "${upper_band_sats}" in text
@@ -96,18 +59,11 @@ def test_band_formula_comes_from_config(name):
 @pytest.mark.parametrize("arithmetic", ("floor_fee_rate - t.effective_fee_rate",
                                         "median_fee_rate * t.virtual_size"))
 def test_band_formula_is_not_hand_written(name, arithmetic):
-    """The arithmetic itself must appear in `config.py` and nowhere else."""
     assert arithmetic not in source(name)
 
 
 @pytest.mark.parametrize("name", DENOMINATOR_STEPS)
 def test_full_block_denominator_requires_a_floor(name):
-    """A full block with no floor must stay out of every denominator.
-
-    `is_full` is set from weight and neighbour count alone, so it does not
-    imply a floor. A block without one can never reach the numerator, and
-    counting it below the line only deflates the share.
-    """
     text = source(name)
     assert "${low_fee_denominator}" in text
     # ...and no bare `b.is_full` slipped back in beside it.
@@ -117,19 +73,10 @@ def test_full_block_denominator_requires_a_floor(name):
 
 @pytest.mark.parametrize("name", DENOMINATOR_STEPS)
 def test_full_block_denominator_excludes_nonrelayable(name):
-    """Non-relayable space must stay out of every denominator too.
-
-    Step 06b never marks a non-relayable transaction low-fee, so those vbytes
-    can only ever sit below the line. Leaving them there measures low-fee relayable
-    space against space that was never in the auction, and quietly deflates
-    the share by however much non-relayable traffic the month happened to
-    carry.
-    """
     assert "NOT t.is_nonrelayable" in bqio.render(name)
 
 
 def test_sensitivity_grid_uses_the_same_tests():
-    """Step 08 spells the tests out under its own aliases; it must still be all three."""
     sql = bqio.render("08_sensitivity.sql")
     assert "f.is_full" in sql
     assert "f.floor_fee_rate IS NOT NULL" in sql
@@ -137,13 +84,6 @@ def test_sensitivity_grid_uses_the_same_tests():
 
 
 def test_sensitivity_grid_is_keyed_by_month():
-    """Step 08 must group by month, or the export cannot replace a month.
-
-    The grid's cells are sums. `export_results.py` merges `out/` by dropping
-    the months a run covers and writing the fresh rows in their place; with
-    no month on the row there is no key to drop, and re-running a month would
-    double every cell it touches.
-    """
     sql = bqio.render("08_sensitivity.sql")
     assert "GROUP BY t.block_month, f.sensitivity, f.full_weight" in sql
     assert "t.block_month,\n  f.sensitivity" in sql
@@ -152,7 +92,6 @@ def test_sensitivity_grid_is_keyed_by_month():
 @requires_bigquery
 @pytest.mark.parametrize("name", SQL_FILES)
 def test_step_dry_runs(name):
-    """BigQuery parses and plans the step. Free: a dry run scans nothing."""
     from google.api_core.exceptions import NotFound
 
     try:

@@ -1,19 +1,3 @@
-"""Step 04: effective fee rate per transaction, through CPFP union-find.
-
-Blocks are read into Python one at a time, the in-block parent/child edges are
-unioned into packages, and every member of a package takes the package price,
-sum(fee) / sum(vbytes). The result lands in `tx_packages` and step 05 writes it
-onto `txs`.
-
-Only transactions with an in-block relative are read (`tx_in_package`).
-A transaction with no relative is its own package and already carries
-`effective_fee_rate = fee / virtual_size` from step 03; sending 400 million
-such rows through Python would change no number.
-
-The reader is behind a small interface so the fixture tests can drive the same
-grouping code from a local SQLite database with no credentials.
-"""
-
 import argparse
 import itertools
 import json
@@ -44,7 +28,6 @@ PACKAGE_SCHEMA = [
 # --- sources --------------------------------------------------------------
 
 class BigQuerySource:
-    """Reads `tx_in_package` in block-number chunks."""
 
     def __init__(self, table=None):
         self.table = table or f"{config.dst()}.tx_in_package"
@@ -57,7 +40,6 @@ class BigQuerySource:
         return row["lo"], row["hi"]
 
     def fetch(self, lo, hi):
-        """Stream the chunk; a busy month is millions of rows."""
         import bqio
         sql = (f"SELECT tx_hash, block_number, fee, virtual_size, parent_hashes "
                f"FROM `{self.table}` "
@@ -67,12 +49,6 @@ class BigQuerySource:
 
 
 class SqliteSource:
-    """Reads the same shape from a local database. Used by the tests.
-
-    Expected table `tx_in_package(tx_hash TEXT, block_number INT, fee INT,
-    virtual_size INT, parent_hashes TEXT)` where `parent_hashes` is a JSON
-    array of hashes.
-    """
 
     def __init__(self, path, table="tx_in_package"):
         self.conn = sqlite3.connect(path)
@@ -97,19 +73,16 @@ class SqliteSource:
 # --- grouping -------------------------------------------------------------
 
 def group_rows_by_block(rows):
-    """Yield (block_number, [rows]) for rows ordered by block number."""
     for block_number, group in itertools.groupby(
             rows, key=lambda r: r["block_number"]):
         yield block_number, list(group)
 
 
 def package_rows(rows):
-    """Union-find every block in `rows`; return staging rows for `tx_packages`."""
     return list(iter_package_rows(rows))
 
 
 def iter_package_rows(rows):
-    """Same, one block at a time, so a long run holds only one block."""
     for block_number, block_txs in group_rows_by_block(rows):
         for pkg in package_transactions(block_txs):
             pkg["block_number"] = block_number
@@ -119,7 +92,6 @@ def iter_package_rows(rows):
 # --- writer ---------------------------------------------------------------
 
 class BigQueryWriter:
-    """Appends staging rows through load jobs, which carry no query charge."""
 
     def __init__(self, table=None):
         self.table = table or f"{config.dst()}.tx_packages"
@@ -127,7 +99,6 @@ class BigQueryWriter:
         self.written = 0
 
     def write(self, rows):
-        """Load a batch as Parquet. Load jobs carry no query charge."""
         if not rows:
             return
         import pandas as pd
@@ -147,7 +118,6 @@ class BigQueryWriter:
 
 
 class ListWriter:
-    """Collects rows in memory. Used by the tests."""
 
     def __init__(self):
         self.rows = []
@@ -161,11 +131,6 @@ class ListWriter:
 # --- driver ---------------------------------------------------------------
 
 def run(source, writer, chunk_blocks=None, flush_rows=None, verbose=True):
-    """Walk the block range in chunks, packaging each block.
-
-    Rows are streamed and flushed in batches, so the memory held at any moment
-    is one batch rather than one chunk of a busy month.
-    """
     chunk_blocks = chunk_blocks or config.UNIONFIND_CHUNK_BLOCKS
     flush_rows = flush_rows or config.UNIONFIND_FLUSH_ROWS
     lo, hi = source.block_range()

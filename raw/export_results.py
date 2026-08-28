@@ -1,31 +1,3 @@
-"""Pull the result tables out of BigQuery and merge them into `out/`.
-
-Writes to `${OUT_DIR}` (default `out/`), one JSON file per table, each an
-array of records:
-
-    monthly_summary.json      per month: low-fee space, share, value bands
-    pool_summary.json         the same per pool
-    low_fee_sensitivity.json  the 3x3 threshold grid, per month
-    low_fee_txs_sample.json   the 5,000 largest low-fee transactions
-    headline.json             the numbers quoted in the write-up
-    summary.md                a readable digest of all of the above
-
-These files are tracked in git, and every export is incremental. The BigQuery
-working dataset holds only the months the last run covered (each pipeline step
-is a `CREATE OR REPLACE TABLE`), so this module never overwrites the whole
-file. It takes the months present in the fresh `monthly_summary`, drops those
-months from the file on disk, and writes the fresh rows in their place. Months
-the run did not touch stay as they are.
-
-Re-running a month is therefore safe: its old rows are replaced, not added to.
-That includes `low_fee_sensitivity`, which is stored per month and summed
-across months only when `summary.md` and `headline.json` are written.
-
-`export_month()` is what `run_pipeline.py --month` calls after a one-month
-run. The BigQuery dataset can then be dropped with `delete_dataset.py` before
-the next month runs.
-"""
-
 import argparse
 import datetime
 import decimal
@@ -77,12 +49,6 @@ def _is_missing(value):
 
 
 def _json_safe(value):
-    """One cell, as something `json` can write and read back unchanged.
-
-    Dates become ISO strings so that a value read from disk compares and
-    sorts against a fresh one from BigQuery. Everything else is reduced to a
-    plain Python scalar; numpy and Decimal types cannot be serialised.
-    """
     if isinstance(value, (list, tuple)):
         return [_json_safe(v) for v in value]
     if _is_missing(value):
@@ -97,7 +63,6 @@ def _json_safe(value):
 
 
 def read_json(out_dir, name):
-    """A table as it stands on disk, or None if it is not there yet."""
     path = os.path.join(out_dir, f"{name}.json")
     if not os.path.exists(path):
         return None
@@ -116,7 +81,6 @@ def write_json(out_dir, name, df):
 
 
 def normalise(df):
-    """A fresh BigQuery frame in the same types the JSON on disk uses."""
     return pd.DataFrame([{k: _json_safe(v) for k, v in row.items()}
                          for row in df.to_dict(orient="records")],
                         columns=list(df.columns))
@@ -125,14 +89,12 @@ def normalise(df):
 # --- merging -------------------------------------------------------------
 
 def months_covered(monthly):
-    """The months this run's BigQuery dataset holds."""
     if monthly is None or monthly.empty:
         return set()
     return set(monthly[MONTH])
 
 
 def merge_months(existing, fresh, months, sort_keys):
-    """Replace every row for `months`, keep the rest, sort the result."""
     kept = None
     if existing is not None and not existing.empty and MONTH in existing.columns:
         kept = existing[~existing[MONTH].isin(months)]
@@ -146,7 +108,6 @@ def merge_months(existing, fresh, months, sort_keys):
 
 
 def merge_sample(existing, fresh, months, sort_col, k=SAMPLE_SIZE):
-    """The same replacement, then the largest `k` rows across all months."""
     combined = merge_months(existing, fresh, months, [sort_col])
     if combined.empty:
         return combined
@@ -155,7 +116,6 @@ def merge_sample(existing, fresh, months, sort_col, k=SAMPLE_SIZE):
 
 
 def sensitivity_totals(grid):
-    """The per-month grid summed into the one grid the write-up quotes."""
     keys = ["sensitivity", "full_weight"]
     sum_cols = ["low_fee_txs", "low_fee_vbytes", "full_block_vbytes",
                 "lower_band_btc", "upper_band_btc"]
@@ -278,14 +238,12 @@ def write_summary(out_dir, monthly, sensitivity_grid, pools):
 # --- the export ----------------------------------------------------------
 
 def fetch():
-    """The result tables as the working dataset currently holds them."""
     return {name: normalise(
         bqio.client().query(bqio.render_string(sql)).result().to_dataframe())
         for name, sql in TABLES.items()}
 
 
 def merge_into(out_dir, fresh, replace=False):
-    """Merge fetched tables into `out_dir` and rewrite the derived files."""
     os.makedirs(out_dir, exist_ok=True)
     months = months_covered(fresh["monthly_summary"])
     if not months:
@@ -313,7 +271,6 @@ def merge_into(out_dir, fresh, replace=False):
 
 
 def export_month(out_dir, replace=False):
-    """Fetch the current tables and merge them into `out_dir`."""
     return merge_into(out_dir, fetch(), replace=replace)
 
 

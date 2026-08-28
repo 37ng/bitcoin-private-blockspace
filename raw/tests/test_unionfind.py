@@ -1,5 +1,3 @@
-"""The grouping itself: does the right set of transactions share one price?"""
-
 import pytest
 
 from unionfind import UnionFind, package_transactions
@@ -56,7 +54,6 @@ def test_disjoint_chains_do_not_merge():
 
 
 def test_parent_outside_the_block_is_ignored():
-    """A parent from an earlier block was bought separately; no shared price."""
     rows = [tx("child", 700, 100, ["confirmed_last_week"])]
     out = by_hash(package_transactions(rows))
     assert out["child"]["package_tx_count"] == 1
@@ -71,7 +68,6 @@ def test_package_id_and_rate_do_not_depend_on_row_order():
 
 
 def test_a_cheap_parent_with_a_paying_child_is_priced_as_one():
-    """The case the whole step exists for: 0.2 sat/vB alone, 5.0 together."""
     rows = [tx("parent", 20, 100), tx("child", 980, 100, ["parent"])]
     out = by_hash(package_transactions(rows))
     assert out["parent"]["effective_fee_rate"] == 5.0

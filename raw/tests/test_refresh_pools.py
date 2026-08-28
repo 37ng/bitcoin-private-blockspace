@@ -1,14 +1,3 @@
-"""Offline tests for the pool-list refresh.
-
-The upstream file has changed shape once already: an object keyed by pool
-name became a list of objects. That break stopped the script dead, so both
-shapes are exercised here with literal payloads and no network.
-
-The other thing under test is the pool id. It is mempool.space's
-`poolUniqueId`, the only id that matches the acceleration data, and it is
-what turns the `pools` array of an acceleration into pool names.
-"""
-
 import json
 import os
 import sys
@@ -116,7 +105,6 @@ def test_the_id_map_becomes_a_sql_lookup(tmp_path, monkeypatch):
 
 def test_writing_the_id_map_leaves_coinbase_attribution_alone(tmp_path,
                                                               monkeypatch):
-    """The id decodes the offer array only; the coinbase still names the pool."""
     _write_known(tmp_path, monkeypatch, LIST_PAYLOAD)
     assert pools.load_pools() == [
         ("AntPool", ["/AntPool/"], []),
@@ -127,7 +115,6 @@ def test_writing_the_id_map_leaves_coinbase_attribution_alone(tmp_path,
 # --- the downloaded file is the only source -----------------------------
 
 def test_the_downloaded_file_is_the_whole_table(tmp_path, monkeypatch):
-    """No hand-kept second copy: what was downloaded is what is matched."""
     _write_known(tmp_path, monkeypatch, LIST_PAYLOAD)
     sql = pools.tag_struct_sql()
     assert sql.count("STRUCT(") == 2
@@ -135,7 +122,6 @@ def test_the_downloaded_file_is_the_whole_table(tmp_path, monkeypatch):
 
 
 def test_a_missing_file_says_what_to_run(tmp_path, monkeypatch):
-    """Attribution must fail loudly, not quietly call every block Unknown."""
     monkeypatch.setattr(pools, "_JSON_PATH", str(tmp_path / "absent.json"))
     with pytest.raises(RuntimeError, match="refresh_pools.py"):
         pools.load_pools()
@@ -150,7 +136,6 @@ def test_an_empty_file_says_what_to_run(tmp_path, monkeypatch):
 
 
 def test_the_committed_file_is_present_and_usable():
-    """The checked-in table is what a fresh clone runs on."""
     names = [name for name, _t, _a in pools.load_pools()]
     assert len(names) > 100
     assert "Foundry USA" in names and "AntPool" in names

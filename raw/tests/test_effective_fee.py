@@ -1,8 +1,3 @@
-"""The read path: does the pipeline pull blocks out of a database correctly?
-
-Same code path as production, with a local database in place of BigQuery.
-"""
-
 import effective_fee
 from tests.conftest import FIXTURE_TXS
 
@@ -73,7 +68,6 @@ def test_grouping_splits_on_block_boundaries():
 # counts into a non-relayable reason.
 
 def chain(length, vsize=100):
-    """A CPFP chain: tx 0 at the top, each one spending the one before."""
     return [{"tx_hash": str(i), "block_number": 1, "fee": 10,
              "virtual_size": vsize,
              "parent_hashes": [str(i - 1)] if i else []}
@@ -87,14 +81,12 @@ def ancestors_of(rows):
 
 
 def test_a_transaction_counts_itself_as_an_ancestor():
-    """The mempool limit counts the transaction itself, so this does too."""
     out = ancestors_of(chain(3))
     assert out["0"] == (1, 100)
     assert out["2"] == (3, 300)
 
 
 def test_the_count_stops_at_the_cap():
-    """Past the cap the answer to every rule is already settled."""
     import unionfind
     out = ancestors_of(chain(40))
     assert out[str(unionfind.ANCESTOR_CAP - 1)][0] == unionfind.ANCESTOR_CAP
@@ -102,7 +94,6 @@ def test_the_count_stops_at_the_cap():
 
 
 def test_the_cap_sits_one_over_the_limit_the_rules_use():
-    """A capped count must still decide `more than 25`, which is the rule."""
     import config
     import unionfind
     assert unionfind.ANCESTOR_CAP == config.ANCESTOR_LIMIT + 1
@@ -112,7 +103,6 @@ def test_the_cap_sits_one_over_the_limit_the_rules_use():
 
 
 def test_children_are_not_ancestors():
-    """A fan of children says nothing about the parent's ancestor count."""
     rows = [{"tx_hash": "p", "block_number": 1, "fee": 1, "virtual_size": 50,
              "parent_hashes": []}]
     rows += [{"tx_hash": f"c{i}", "block_number": 1, "fee": 1,
@@ -123,7 +113,6 @@ def test_children_are_not_ancestors():
 
 
 def test_a_parent_outside_the_block_is_not_an_ancestor():
-    """It was already confirmed, so it counts against no unconfirmed limit."""
     rows = [{"tx_hash": "x", "block_number": 1, "fee": 1, "virtual_size": 100,
              "parent_hashes": ["confirmed_last_week"]}]
     assert ancestors_of(rows)["x"] == (1, 100)

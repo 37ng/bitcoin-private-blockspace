@@ -1,11 +1,3 @@
-"""BigQuery helpers: SQL templating, dry-run cost reports, job execution.
-
-Every step is a `.sql` file under `raw/sql/`. Placeholders are `${name}` and
-are filled from `config.template_vars()` plus the pool tables built by
-`pools.py`, so a threshold written in `config.py` reaches the SQL without
-being retyped.
-"""
-
 import os
 import string
 import sys
@@ -22,7 +14,6 @@ _client = None
 
 
 def client():
-    """Lazy BigQuery client, so the pure-Python tests need no credentials."""
     global _client
     if _client is None:
         from google.cloud import bigquery
@@ -42,7 +33,6 @@ def sql_vars(extra=None):
 
 
 def render(name, extra=None):
-    """Read `sql/<name>` and substitute `${...}` placeholders."""
     path = name if os.path.isabs(name) else os.path.join(SQL_DIR, name)
     with open(path) as fh:
         text = fh.read()
@@ -53,7 +43,6 @@ def render(name, extra=None):
 
 
 def render_string(text, extra=None):
-    """Substitute `${...}` placeholders in an inline SQL string."""
     return string.Template(text).substitute(sql_vars(extra))
 
 
@@ -73,7 +62,6 @@ def usd(n_bytes):
 
 
 def dry_run(sql):
-    """Bytes this query would scan. Costs nothing."""
     from google.cloud import bigquery
     job = client().query(
         sql,
@@ -83,7 +71,6 @@ def dry_run(sql):
 
 
 def run(sql, label="query", verbose=True):
-    """Execute a query and report what it scanned and how long it took."""
     started = time.time()
     job = client().query(sql)
     result = job.result()
@@ -99,7 +86,6 @@ def run_file(name, label=None, extra=None, verbose=True):
 
 
 def scalar(sql):
-    """First column of the first row."""
     for row in client().query(sql).result():
         return row[0]
     return None
@@ -110,7 +96,6 @@ def rows(sql):
 
 
 def stream(sql):
-    """Row iterator, for result sets too large to hold in memory at once."""
     return client().query(sql).result()
 
 
@@ -124,7 +109,6 @@ def table_exists(table):
 
 
 def ensure_dataset(dataset=None):
-    """Create the given dataset (default `config.DATASET`) if it is missing."""
     from google.cloud import bigquery
     from google.cloud.exceptions import NotFound
     ref = f"{config.PROJECT}.{dataset or config.DATASET}"
@@ -138,7 +122,6 @@ def ensure_dataset(dataset=None):
 
 
 def confirm(prompt):
-    """Ask before spending money. Non-interactive runs must pass --yes."""
     if not sys.stdin.isatty():
         return False
     return input(f"{prompt} [y/N] ").strip().lower() in ("y", "yes")

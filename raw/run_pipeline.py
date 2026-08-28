@@ -1,21 +1,3 @@
-"""Run the private-blockspace pipeline.
-
-    python run_pipeline.py --dry-run          # what each step would scan
-    python run_pipeline.py --month 2023-04    # one month, end to end, ~$0.18
-    python run_pipeline.py --from 05_block_floor
-
-The source dataset is partitioned by month, and the pipeline aggregates by
-month, so a normal run covers exactly one month with `--month`. Each run
-merges its month into the JSON files in `out/`, which are tracked in git:
-months already there stay, and a month run twice replaces itself. The
-BigQuery working dataset is left in place; delete it with `delete_dataset.py`
-once the local files hold what you need.
-
-Step 01 is the only step that touches the public dataset. It reads that one
-month's partition, about 29 GB, and everything after it works on local tables.
-The run asks before spending unless `--yes` is given.
-"""
-
 import argparse
 import os
 import sys

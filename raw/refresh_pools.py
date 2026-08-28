@@ -1,24 +1,3 @@
-"""Refresh the pool tag table from the public mempool.space pool list.
-
-Pools change their coinbase tags, so the table is downloaded rather than
-kept by hand. This script writes `pools_known.json`, the one source
-`pools.py` reads. Nothing attributes a block until it has run once, and the
-file it writes is committed so a checkout can run the pipeline.
-
-Each entry also keeps the upstream `id`, mempool.space's `poolUniqueId`.
-That is the id the acceleration table stores in `mined_by_pool_unique_id`
-and in its `pools` array of partner pools a request was offered to, so
-writing it here is what lets that array be read as pool names
-(`pools.load_pool_ids`, and `${pool_ids}` in SQL). Block attribution does
-not use it and still comes from the coinbase.
-
-    python refresh_pools.py            # write pools_known.json
-    python refresh_pools.py --print    # show what changed, write nothing
-
-Re-run `sql/02_blocks.sql` afterwards, then `sanity_check.py`, to see the
-attribution move.
-"""
-
 import argparse
 import json
 import os
@@ -36,19 +15,6 @@ def fetch(url):
 
 
 def convert(payload):
-    """Read the upstream pool list into `{name: {id, tags, addresses}}`.
-
-    The file has changed shape once already. It used to be an object keyed by
-    pool name; it is now a list of objects that each carry their own `name`.
-    Both forms are read, so the next change costs one branch and not a broken
-    script.
-
-    `id` is mempool.space's `poolUniqueId`. That is the id the acceleration
-    API reports, in `mined_by_pool_unique_id` and in the `pools` array of
-    partner pools a request was offered to. It is *not* the `poolId` of the
-    `/api/v1/mining/pools` endpoint: that endpoint returns both numbers and
-    they differ for the same pool, so mixing them silently renames pools.
-    """
     if isinstance(payload, dict):
         entries = [dict(entry, name=entry.get("name") or name)
                    for name, entry in payload.items()

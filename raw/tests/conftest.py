@@ -1,20 +1,3 @@
-"""Fixture blocks in a local SQLite database.
-
-The union-find step is the one place where the pipeline leaves SQL, so it is
-the one place that needs its own tests. A local database standing in for
-BigQuery lets the real reader and the real algorithm run with no credentials
-and no cost.
-
-Each fixture block holds one CPFP shape with hand-computable arithmetic:
-
-  block 100  a 3-deep chain               a <- b <- c
-  block 101  one parent, three children   p <- c1, c2, c3
-  block 102  two singletons               no edges at all
-  block 103  two disjoint chains          a <- b   and   x <- y
-  block 104  one child, two parents       p1, p2 <- c
-  block 105  a parent outside the block   the outside hash must be ignored
-"""
-
 import json
 import os
 import sqlite3
@@ -61,7 +44,6 @@ FIXTURE_TXS = [
 
 @pytest.fixture(scope="session")
 def fixture_db(tmp_path_factory):
-    """A local database shaped like `tx_in_package`."""
     path = tmp_path_factory.mktemp("blockspace") / "fixture.db"
     conn = sqlite3.connect(path)
     conn.execute("""

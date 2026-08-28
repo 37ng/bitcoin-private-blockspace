@@ -1,20 +1,3 @@
-"""The relay rules: does the classifier agree with Bitcoin Core's policy?
-
-Step 01 decides, from raw scriptPubKey hex, whether an output matches a
-standard template and whether it is dust. That decision is the one place in
-the pipeline where a mistake deletes real transactions from the measurement,
-so it is checked against hand-built scripts with hand-computed thresholds.
-
-The check runs *the step's own SQL text*, lifted out of `01_tx_base.sql` and
-pointed at an inline table of outputs. There is no second implementation to
-drift out of sync. Inline data scans no bytes, so the queries are free, but
-they do run, and running needs credentials:
-
-    BQ_FIXTURES=1 pytest tests/test_relay_rules.py
-
-Without the variable they skip, so `pytest tests/` stays offline.
-"""
-
 import os
 
 import pytest
@@ -72,7 +55,6 @@ DUST = {
 # --- lifting the step's own SQL -------------------------------------------
 
 def _fragment(alias):
-    """The `SELECT AS STRUCT ...` subquery that step 01 aggregates into `alias`."""
     sql = bqio.render("01_tx_base.sql")
     end = f"\n    ) AS {alias}"
     assert end in sql, f"01_tx_base.sql no longer builds a `{alias}` struct"
@@ -81,7 +63,6 @@ def _fragment(alias):
 
 
 def _outputs_sql(outputs):
-    """An inline `t` with one row holding these (script_hex, value) outputs."""
     rows = ", ".join(f"STRUCT('{script}' AS script_hex, {value} AS value)"
                      for script, value in outputs)
     return f"SELECT [{rows}] AS outputs"
@@ -94,14 +75,12 @@ def _one_struct(sql, column):
 
 
 def classify(outputs):
-    """Run step 01's output classifier over one transaction's outputs."""
     sql = (f"WITH t AS ({_outputs_sql(outputs)})\n"
            f"SELECT {_fragment('outs')} AS outs FROM t")
     return _one_struct(sql, "outs")
 
 
 def classify_inputs(script_hexes):
-    """Run step 01's input classifier over one transaction's inputs."""
     rows = ", ".join(f"STRUCT('{s}' AS script_hex)" for s in script_hexes)
     sql = (f"WITH t AS (SELECT [{rows}] AS inputs)\n"
            f"SELECT {_fragment('ins')} AS ins FROM t")
@@ -118,11 +97,6 @@ NONSTANDARD = [WITNESS_V0_BAD_SIZE, MULTISIG_3_OF_2, P2PK_BAD_HEADER, GARBAGE]
 @requires_bigquery
 @pytest.mark.parametrize("script", STANDARD)
 def test_standard_scripts_carry_no_reason(script):
-    """Every template Core's `Solver` names must pass.
-
-    A false reason here would drop a relayable transaction out of the
-    measurement, which is the error that matters.
-    """
     assert classify([(script, 100_000)])["nonstandard_outputs"] == 0
 
 
@@ -134,7 +108,6 @@ def test_nonstandard_scripts_are_counted(script):
 
 @requires_bigquery
 def test_unknown_witness_version_is_standard_to_create():
-    """Spending one is non-standard; creating one is not, and this is creation."""
     assert classify([(WITNESS_V16, 100_000)])["nonstandard_outputs"] == 0
 
 
@@ -150,20 +123,17 @@ def test_bare_multisig_n_is_read_off_the_script():
 @requires_bigquery
 @pytest.mark.parametrize("script,threshold", sorted(DUST.items()))
 def test_dust_threshold_is_exact(script, threshold):
-    """An output at the threshold is not dust; one satoshi under it is."""
     assert classify([(script, threshold)])["dust_outputs"] == 0
     assert classify([(script, threshold - 1)])["dust_outputs"] == 1
 
 
 @requires_bigquery
 def test_op_return_is_never_dust():
-    """An unspendable output costs nothing to spend, so it cannot be dust."""
     assert classify([(OP_RETURN, 0)])["dust_outputs"] == 0
 
 
 @requires_bigquery
 def test_bare_multisig_dust_is_counted_apart():
-    """Before Core 29 the dust test skipped bare multisig outputs."""
     tiny = MULTISIG_1_OF_2
     out = classify([(tiny, 1)])
     assert out["dust_outputs"] == 1
@@ -174,7 +144,6 @@ def test_bare_multisig_dust_is_counted_apart():
 
 @requires_bigquery
 def test_op_return_bytes_are_counted_per_output_and_in_total():
-    """Core v30 moved the datacarrier limit from each output to their sum."""
     out = classify([(OP_RETURN_84, 0), (OP_RETURN, 0), (P2PKH, 100_000)])
     assert out["op_return_count"] == 2
     assert out["op_return_max_bytes"] == 84
@@ -199,7 +168,6 @@ def test_scriptsig_size_is_measured_in_bytes():
 
 @requires_bigquery
 def test_a_scriptsig_opening_with_a_real_opcode_is_not_push_only():
-    """OP_CHECKSIG (0xac) is over OP_16, so the scriptSig cannot be push-only."""
     assert classify_inputs(["ac"])["opens_with_nonpush_opcode"] is True
     assert classify_inputs(["4730" + "aa" * 70])["opens_with_nonpush_opcode"] is False
     assert classify_inputs([""])["opens_with_nonpush_opcode"] is False
@@ -244,7 +212,6 @@ def _tx_base_row(overrides):
 
 
 def reasons(*rows):
-    """Run step 03 over an inline `tx_base`; return {tx_hash: row}."""
     fixture = "\n  UNION ALL ".join(_tx_base_row(r) for r in rows)
     sql = bqio.render("03_txs.sql")
     body = sql[sql.index("\nAS\n") + 4:]
@@ -255,7 +222,6 @@ def reasons(*rows):
 
 
 def at(date, **overrides):
-    """One fixture transaction, confirmed on `date`."""
     overrides.setdefault("tx_hash", f"'{date}'")
     overrides["block_timestamp"] = f"TIMESTAMP('{date}')"
     overrides["block_month"] = f"DATE '{date[:8]}01'"
@@ -264,7 +230,6 @@ def at(date, **overrides):
 
 @requires_bigquery
 def test_the_minimum_relay_fee_gate_moves_on_the_release_date():
-    """0.5 sat/vB was under the minimum until Core 29.1, and over it after."""
     out = reasons(
         at("2025-09-03", tx_hash="'before'", fee="500", virtual_size="1000"),
         at("2025-09-05", tx_hash="'after'", fee="500", virtual_size="1000"),
@@ -277,7 +242,6 @@ def test_the_minimum_relay_fee_gate_moves_on_the_release_date():
 
 @requires_bigquery
 def test_the_datacarrier_gate_moves_on_the_release_date():
-    """84 bytes of OP_RETURN was over the limit until Core v30."""
     out = reasons(
         at("2025-10-07", tx_hash="'before'", op_return_count="1",
            op_return_max_bytes="84", op_return_total_bytes="84"),
@@ -319,7 +283,6 @@ def test_the_standard_version_range_widens_when_truc_ships():
 
 @requires_bigquery
 def test_the_dust_gate_moves_when_ephemeral_dust_ships():
-    """One dust output became standard, but only on a 0-fee parent."""
     out = reasons(
         at("2025-04-14", tx_hash="'before'", dust_outputs="1",
            dust_outputs_excl_multisig="1"),
@@ -335,7 +298,6 @@ def test_the_dust_gate_moves_when_ephemeral_dust_ships():
 
 @requires_bigquery
 def test_ephemeral_dust_needs_a_zero_fee_parent_and_a_child():
-    """The 0-fee parent with the child that spends its dust is the standard case."""
     out = reasons(
         at("2025-06-01", tx_hash="'parent'", fee="0", dust_outputs="1",
            dust_outputs_excl_multisig="1"),
@@ -403,7 +365,6 @@ def test_a_truc_child_is_capped_smaller_and_may_not_mix_versions():
 
 @requires_bigquery
 def test_a_coinbase_transaction_is_never_non_relayable():
-    """It is never relayed and never bids for space, so no rule applies to it."""
     out = reasons(at("2024-01-01", tx_hash="'cb'", is_coinbase="TRUE", fee="0",
                    nonstandard_outputs="3", dust_outputs="2", version="9",
                    virtual_size="30", serialized_size="30"))
@@ -412,7 +373,6 @@ def test_a_coinbase_transaction_is_never_non_relayable():
 
 @requires_bigquery
 def test_a_sub_minimum_parent_with_a_paying_child_has_no_reason():
-    """Ordinary CPFP, which miners have accepted from the public mempool for years."""
     out = reasons(
         at("2024-01-01", tx_hash="'parent'", fee="0", virtual_size="1000"),
         at("2024-01-01", tx_hash="'child'", fee="10000", virtual_size="1000",
@@ -424,7 +384,6 @@ def test_a_sub_minimum_parent_with_a_paying_child_has_no_reason():
 
 @requires_bigquery
 def test_an_ordinary_transaction_carries_no_reason_at_all():
-    """The guard against a rule that fires on everything."""
     out = reasons(at("2024-06-01", tx_hash="'plain'"))
     row = out["plain"]
     assert row["is_nonrelayable"] is False

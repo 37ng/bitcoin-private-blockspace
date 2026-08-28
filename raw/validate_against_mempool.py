@@ -1,30 +1,3 @@
-"""Cross-check low-fee transactions against mempool.space block audits.
-
-mempool.space keeps its own view of what a block should have contained. Its
-`audit-summary` for a block reports, among other things:
-
-    addedTxs        in the block but not in their expected template
-    acceleratedTxs  paid for through their public acceleration service
-
-Neither is the same measurement as the low-fee test. `addedTxs` also holds
-latency and policy artifacts, while the low-fee test is about price, so the
-overlap is expected to be
-partial. It is reported as it comes out, not tuned.
-
-`acceleratedTxs` matters more: those transactions were paid for out of band
-through a public service. A low-fee transaction that appears there is a
-confirmed out-of-auction purchase — and also a transaction whose extra payment
-is publicly known, so it is arguably a false positive for the "off chain and
-invisible" reading. The count is reported either way.
-
-The audit API only covers recent history on the public instance; blocks below
-roughly 790,000 usually return nothing. Responses are cached under
-`${CACHE_DIR}` and the loop sleeps between calls, because each response is a
-full block template.
-
-    python validate_against_mempool.py --sample 50
-"""
-
 import argparse
 import json
 import os

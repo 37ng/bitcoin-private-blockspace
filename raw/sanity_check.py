@@ -1,19 +1,3 @@
-"""Is the pool attribution real?
-
-Prints each pool's share of blocks per month. Compare against a public
-hashrate chart (mempool.space/graphs/mining/pools, or blockchain.com). A share
-off by more than about 2 points means the coinbase tag table in `pools.py` has
-gone stale, and every per-pool number downstream is then worthless.
-
-The share of blocks left unattributed is the number to watch first: a few
-percent is normal for solo and small miners, but a jump means a large pool
-changed its coinbase tag.
-
-    python sanity_check.py               # last 12 months
-    python sanity_check.py --all         # the whole window
-    python sanity_check.py --top 15
-"""
-
 import argparse
 import os
 import sys

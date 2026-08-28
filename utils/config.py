@@ -1,10 +1,3 @@
-"""Configuration for the private-blockspace pipeline.
-
-All policy dates and thresholds live here. Every SQL step reads these
-values through the templating in `bqio.render`, so a threshold is defined
-once and cannot drift between steps.
-"""
-
 import os
 
 # --- BigQuery targets ----------------------------------------------------
@@ -34,12 +27,10 @@ MONTH = os.environ.get("MONTH")
 
 
 def month_of(date_str: str) -> str:
-    """First day of the month, matching the source partition key."""
     return date_str[:8] + "01"
 
 
 def set_window(start_date: str, end_date: str = None) -> None:
-    """Narrow the study window to an explicit date range."""
     global START_DATE, END_DATE
     START_DATE = start_date
     if end_date:
@@ -47,7 +38,6 @@ def set_window(start_date: str, end_date: str = None) -> None:
 
 
 def set_month(month_str: str) -> None:
-    """Narrow the study window to one calendar month, e.g. "2023-04"."""
     year, month = int(month_str[:4]), int(month_str[5:7])
     start = f"{year}-{month:02d}-01"
     end = f"{year + (month // 12)}-{month % 12 + 1:02d}-01"
@@ -202,17 +192,14 @@ DATA_DIR = os.environ.get("DATA_DIR", os.path.join(REPO_ROOT, "data"))
 
 
 def dst() -> str:
-    """Fully qualified destination dataset."""
     return f"{PROJECT}.{DATASET}"
 
 
 def accel_dst() -> str:
-    """Fully qualified accelerations dataset."""
     return f"{PROJECT}.{ACCEL_DATASET}"
 
 
 def template_vars() -> dict:
-    """Values injected into every SQL step."""
     return {
         "dst": dst(),
         "accel_dst": accel_dst(),

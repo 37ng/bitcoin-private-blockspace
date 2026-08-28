@@ -1,23 +1,3 @@
-"""Mining pool attribution.
-
-A block carries no pool field. Attribution uses two marks the pool leaves in
-its own coinbase transaction:
-
-  1. a tag in the coinbase scriptSig (`blocks.coinbase_param`, hex encoded);
-  2. the payout address of a coinbase output.
-
-The tag is checked first and the address second, which matches the order used
-by mempool.space. `sanity_check.py` compares the resulting share per pool
-against a public hashrate chart; a share off by more than ~2 points means
-attribution is broken and every downstream number is suspect.
-
-The marks themselves come from one place: `pools_known.json`, written by
-`refresh_pools.py` from the public mempool.space pool list. There is no
-second, hand-kept copy to drift out of sync with it. The file is committed,
-so a checkout can run the pipeline and so the exact table behind a published
-number is recorded in git; re-run `refresh_pools.py` to move it forward.
-"""
-
 import json
 import os
 
@@ -30,7 +10,6 @@ MISSING = (f"{os.path.basename(_JSON_PATH)} is missing or empty. "
 
 
 def load_pools():
-    """Return `[(name, [tags], [addresses])]` from the downloaded pool list."""
     if not os.path.exists(_JSON_PATH):
         raise RuntimeError(MISSING)
     with open(_JSON_PATH) as fh:
@@ -44,14 +23,6 @@ def load_pools():
 
 
 def load_pool_ids():
-    """Return `{pool id: pool name}` from the refreshed file.
-
-    The id is mempool.space's `poolUniqueId`, which is what the acceleration
-    API reports: `mined_by_pool_unique_id`, and every entry of the `pools`
-    array of partner pools a request was offered to. Older copies of the
-    file carry no ids, so this is empty until `refresh_pools.py` has run
-    since ids were added.
-    """
     if not os.path.exists(_JSON_PATH):
         return {}
     with open(_JSON_PATH) as fh:
@@ -67,18 +38,10 @@ def load_pool_ids():
 
 
 def _sql_string(value: str) -> str:
-    """Quote a Python string as a BigQuery string literal."""
     return "'" + value.replace("\\", "\\\\").replace("'", "\\'") + "'"
 
 
 def tag_struct_sql() -> str:
-    """`UNNEST([...])` body mapping a coinbase tag to a pool name.
-
-    Tags are emitted lowercased and matched against a lowercased coinbase
-    text, because a hand-kept table gets the case wrong more often than two
-    pools collide on a lowercased tag. Longer tags win, so `/Braiins Pool/`
-    beats a bare `/slush/` substring.
-    """
     rows = []
     seen = set()
     for name, tags, _addr in load_pools():
@@ -96,7 +59,6 @@ def tag_struct_sql() -> str:
 
 
 def address_struct_sql() -> str:
-    """`UNNEST([...])` body mapping a coinbase payout address to a pool name."""
     owners = {}
     for name, _tags, addrs in load_pools():
         for addr in addrs:
@@ -118,13 +80,6 @@ def address_struct_sql() -> str:
 
 
 def pool_id_struct_sql() -> str:
-    """`UNNEST([...])` body mapping a mempool.space pool id to a pool name.
-
-    This is for reading the acceleration `pools` array, the list of partner
-    pools a request was offered to. It is not for block attribution: which
-    pool mined a block is decided by the coinbase, above, so that the project
-    keeps one definition of "which pool".
-    """
     ids = load_pool_ids()
     if not ids:
         # An empty array literal needs an explicit type in BigQuery.
