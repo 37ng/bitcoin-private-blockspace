@@ -1,25 +1,34 @@
-"""Pull the result tables out of BigQuery and write them to files.
+"""Pull the result tables out of BigQuery and merge them into `out/`.
 
-Writes to `${OUT_DIR}` (default `out/`):
+Writes to `${OUT_DIR}` (default `out/`), one JSON file per table, each an
+array of records:
 
-    monthly_summary.csv      per month: low-fee space, share, value bands
-    pool_summary.csv         the same per pool
-    low_fee_sensitivity.csv   the 3x3 threshold grid
-    low_fee_txs_sample.csv   the 5,000 largest low-fee transactions
-    headline.json            the numbers quoted in the write-up
-    summary.md               a readable digest of all of the above
+    monthly_summary.json      per month: low-fee space, share, value bands
+    pool_summary.json         the same per pool
+    low_fee_sensitivity.json  the 3x3 threshold grid, per month
+    low_fee_txs_sample.json   the 5,000 largest low-fee transactions
+    headline.json             the numbers quoted in the write-up
+    summary.md                a readable digest of all of the above
+
+These files are tracked in git, and every export is incremental. The BigQuery
+working dataset holds only the months the last run covered (each pipeline step
+is a `CREATE OR REPLACE TABLE`), so this module never overwrites the whole
+file. It takes the months present in the fresh `monthly_summary`, drops those
+months from the file on disk, and writes the fresh rows in their place. Months
+the run did not touch stay as they are.
+
+Re-running a month is therefore safe: its old rows are replaced, not added to.
+That includes `low_fee_sensitivity`, which is stored per month and summed
+across months only when `summary.md` and `headline.json` are written.
 
 `export_month()` is what `run_pipeline.py --month` calls after a one-month
-run. The BigQuery working dataset holds only that month's tables (each
-pipeline step is a `CREATE OR REPLACE TABLE`), so it merges the fresh month
-into the existing local files instead of overwriting them: `monthly_summary`
-and `pool_summary` are keyed by month, `low_fee_sensitivity` sums across
-months per grid cell, and `low_fee_txs_sample` keeps the largest 5,000 seen
-across all runs so far. The BigQuery dataset can then be dropped with
-`delete_dataset.py` before the next month runs.
+run. The BigQuery dataset can then be dropped with `delete_dataset.py` before
+the next month runs.
 """
 
 import argparse
+import datetime
+import decimal
 import json
 import os
 
@@ -33,26 +42,136 @@ TABLES = {
     "pool_summary": "SELECT * FROM `${dst}.pool_summary` "
                     "ORDER BY block_month, low_fee_vbytes_50 DESC",
     "low_fee_sensitivity": "SELECT * FROM `${dst}.low_fee_sensitivity` "
-                          "ORDER BY sensitivity, full_weight",
+                          "ORDER BY block_month, sensitivity, full_weight",
     "low_fee_txs_sample": "SELECT * FROM `${dst}.low_fee_txs` "
                           "WHERE low_fee_50 ORDER BY upper_band_sats DESC LIMIT 5000",
 }
 
+# How each table is sorted on disk, so a re-run produces a small git diff.
+SORT_KEYS = {
+    "monthly_summary": ["block_month"],
+    "pool_summary": ["block_month", "pool_name"],
+    "low_fee_sensitivity": ["block_month", "sensitivity", "full_weight"],
+}
 
-def export_table(name, sql, out_dir):
-    df = bqio.client().query(bqio.render_string(sql)).result().to_dataframe()
-    path = os.path.join(out_dir, f"{name}.csv")
-    df.to_csv(path, index=False)
-    print(f"  {path}  {len(df)} rows")
-    return df
+# Rows kept in `low_fee_txs_sample.json`, across every month exported so far.
+SAMPLE_SIZE = 5000
 
+# The month column every result table carries. It is what makes a re-run
+# replace rather than accumulate.
+MONTH = "block_month"
+
+
+# --- JSON on disk --------------------------------------------------------
+
+def _is_missing(value):
+    if isinstance(value, (list, tuple, dict, set)):
+        return False
+    try:
+        return bool(pd.isna(value))
+    except (TypeError, ValueError):
+        return False
+
+
+def _json_safe(value):
+    """One cell, as something `json` can write and read back unchanged.
+
+    Dates become ISO strings so that a value read from disk compares and
+    sorts against a fresh one from BigQuery. Everything else is reduced to a
+    plain Python scalar; numpy and Decimal types cannot be serialised.
+    """
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(v) for v in value]
+    if _is_missing(value):
+        return None
+    if isinstance(value, (pd.Timestamp, datetime.datetime, datetime.date)):
+        return value.isoformat()
+    if isinstance(value, decimal.Decimal):
+        return float(value)
+    if hasattr(value, "item"):  # numpy / pandas scalar
+        return _json_safe(value.item())
+    return value
+
+
+def read_json(out_dir, name):
+    """A table as it stands on disk, or None if it is not there yet."""
+    path = os.path.join(out_dir, f"{name}.json")
+    if not os.path.exists(path):
+        return None
+    with open(path) as fh:
+        return pd.DataFrame(json.load(fh))
+
+
+def write_json(out_dir, name, df):
+    path = os.path.join(out_dir, f"{name}.json")
+    records = [{k: _json_safe(v) for k, v in row.items()}
+               for row in df.to_dict(orient="records")]
+    with open(path, "w") as fh:
+        json.dump(records, fh, indent=2)
+        fh.write("\n")
+    print(f"  {path}  {len(records)} rows")
+
+
+def normalise(df):
+    """A fresh BigQuery frame in the same types the JSON on disk uses."""
+    return pd.DataFrame([{k: _json_safe(v) for k, v in row.items()}
+                         for row in df.to_dict(orient="records")],
+                        columns=list(df.columns))
+
+
+# --- merging -------------------------------------------------------------
+
+def months_covered(monthly):
+    """The months this run's BigQuery dataset holds."""
+    if monthly is None or monthly.empty:
+        return set()
+    return set(monthly[MONTH])
+
+
+def merge_months(existing, fresh, months, sort_keys):
+    """Replace every row for `months`, keep the rest, sort the result."""
+    kept = None
+    if existing is not None and not existing.empty and MONTH in existing.columns:
+        kept = existing[~existing[MONTH].isin(months)]
+    if kept is None or kept.empty:
+        combined = fresh
+    else:
+        combined = pd.concat([kept, fresh], ignore_index=True)
+    if combined.empty:
+        return combined.reset_index(drop=True)
+    return combined.sort_values(sort_keys).reset_index(drop=True)
+
+
+def merge_sample(existing, fresh, months, sort_col, k=SAMPLE_SIZE):
+    """The same replacement, then the largest `k` rows across all months."""
+    combined = merge_months(existing, fresh, months, [sort_col])
+    if combined.empty:
+        return combined
+    return (combined.sort_values(sort_col, ascending=False)
+            .head(k).reset_index(drop=True))
+
+
+def sensitivity_totals(grid):
+    """The per-month grid summed into the one grid the write-up quotes."""
+    keys = ["sensitivity", "full_weight"]
+    sum_cols = ["low_fee_txs", "low_fee_vbytes", "full_block_vbytes",
+                "lower_band_btc", "upper_band_btc"]
+    if grid is None or grid.empty:
+        return pd.DataFrame(columns=keys + sum_cols + ["low_fee_share"])
+    totals = grid.groupby(keys, as_index=False)[sum_cols].sum()
+    totals["low_fee_share"] = totals["low_fee_vbytes"] / totals["full_block_vbytes"]
+    return totals.sort_values(keys).reset_index(drop=True)
+
+
+# --- the write-up numbers ------------------------------------------------
 
 def headline_numbers(monthly, sensitivity):
     low_fee = monthly[f"low_fee_vbytes_{sensitivity}"].sum()
     full = monthly["full_block_vbytes"].sum()
     return {
-        "window_start": str(monthly["block_month"].min()),
-        "window_end": str(monthly["block_month"].max()),
+        "window_start": str(monthly[MONTH].min()),
+        "window_end": str(monthly[MONTH].max()),
+        "months": int(monthly[MONTH].nunique()),
         "sensitivity": f"0.{sensitivity}",
         "low_fee_txs": int(monthly[f"low_fee_txs_{sensitivity}"].sum()),
         "low_fee_vbytes": int(low_fee),
@@ -78,6 +197,8 @@ def write_summary(out_dir, monthly, sensitivity_grid, pools):
         "were full at the time. Non-relayable traffic is excluded from the "
         "count: it never entered the public auction, so its price says nothing "
         "about a discount.",
+        "",
+        f"Covers {mid['months']} month(s), added one run at a time.",
         "",
         "## Headline (sensitivity 0.5)",
         "",
@@ -147,83 +268,63 @@ def write_summary(out_dir, monthly, sensitivity_grid, pools):
     path = os.path.join(out_dir, "headline.json")
     with open(path, "w") as fh:
         json.dump(head, fh, indent=2)
+        fh.write("\n")
     print(f"  {path}")
 
 
-def _load(out_dir, name):
-    path = os.path.join(out_dir, f"{name}.csv")
-    return pd.read_csv(path) if os.path.exists(path) else None
+# --- the export ----------------------------------------------------------
+
+def fetch():
+    """The result tables as the working dataset currently holds them."""
+    return {name: normalise(
+        bqio.client().query(bqio.render_string(sql)).result().to_dataframe())
+        for name, sql in TABLES.items()}
 
 
-def _merge_by_key(existing, fresh, keys):
-    """Replace rows sharing a key (this month, re-run) and keep the rest."""
-    if existing is None or existing.empty:
-        return fresh.sort_values(keys).reset_index(drop=True)
-    fresh_keys = fresh.set_index(keys).index
-    kept = existing[~existing.set_index(keys).index.isin(fresh_keys)]
-    return (pd.concat([kept, fresh], ignore_index=True)
-            .sort_values(keys).reset_index(drop=True))
-
-
-def _merge_sensitivity(existing, fresh):
-    """Grid cells sum across disjoint months; the share is recomputed."""
-    keys = ["sensitivity", "full_weight"]
-    sum_cols = ["low_fee_txs", "low_fee_vbytes", "full_block_vbytes",
-                "lower_band_btc", "upper_band_btc"]
-    if existing is None or existing.empty:
-        combined = fresh[keys + sum_cols].copy()
-    else:
-        combined = (pd.concat([existing[keys + sum_cols], fresh[keys + sum_cols]])
-                    .groupby(keys, as_index=False)[sum_cols].sum())
-    combined["low_fee_share"] = combined["low_fee_vbytes"] / combined["full_block_vbytes"]
-    return combined.sort_values(keys).reset_index(drop=True)
-
-
-def _merge_top_k(existing, fresh, sort_col, k=5000):
-    combined = fresh if existing is None or existing.empty else pd.concat([existing, fresh])
-    return (combined.sort_values(sort_col, ascending=False)
-            .head(k).reset_index(drop=True))
-
-
-def export_month(out_dir):
-    """Fetch the current (single-month) tables and merge them into out_dir."""
+def merge_into(out_dir, fresh, replace=False):
+    """Merge fetched tables into `out_dir` and rewrite the derived files."""
     os.makedirs(out_dir, exist_ok=True)
-    fresh = {name: bqio.client().query(bqio.render_string(sql)).result().to_dataframe()
-             for name, sql in TABLES.items()}
+    months = months_covered(fresh["monthly_summary"])
+    if not months:
+        print("  the working dataset holds no months; nothing to merge")
+        return None
+
+    def on_disk(name):
+        return None if replace else read_json(out_dir, name)
 
     merged = {
-        "monthly_summary": _merge_by_key(
-            _load(out_dir, "monthly_summary"), fresh["monthly_summary"], ["block_month"]),
-        "pool_summary": _merge_by_key(
-            _load(out_dir, "pool_summary"), fresh["pool_summary"],
-            ["block_month", "pool_name"]),
-        "low_fee_sensitivity": _merge_sensitivity(
-            _load(out_dir, "low_fee_sensitivity"), fresh["low_fee_sensitivity"]),
-        "low_fee_txs_sample": _merge_top_k(
-            _load(out_dir, "low_fee_txs_sample"), fresh["low_fee_txs_sample"],
-            "upper_band_sats"),
+        name: merge_months(on_disk(name), fresh[name], months, keys)
+        for name, keys in SORT_KEYS.items()
     }
-    for name, df in merged.items():
-        path = os.path.join(out_dir, f"{name}.csv")
-        df.to_csv(path, index=False)
-        print(f"  {path}  {len(df)} rows")
+    merged["low_fee_txs_sample"] = merge_sample(
+        on_disk("low_fee_txs_sample"), fresh["low_fee_txs_sample"], months,
+        "upper_band_sats")
+
+    for name in TABLES:
+        write_json(out_dir, name, merged[name])
 
     write_summary(out_dir, merged["monthly_summary"],
-                  merged["low_fee_sensitivity"], merged["pool_summary"])
+                  sensitivity_totals(merged["low_fee_sensitivity"]),
+                  merged["pool_summary"])
+    return merged
+
+
+def export_month(out_dir, replace=False):
+    """Fetch the current tables and merge them into `out_dir`."""
+    return merge_into(out_dir, fetch(), replace=replace)
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--out", default=config.OUT_DIR)
+    parser.add_argument("--replace", action="store_true",
+                        help="ignore what is already in --out and write only "
+                             "the months the working dataset holds")
     args = parser.parse_args()
 
-    os.makedirs(args.out, exist_ok=True)
     print(f"writing to {args.out}/")
-    frames = {name: export_table(name, sql, args.out)
-              for name, sql in TABLES.items()}
-    write_summary(args.out, frames["monthly_summary"],
-                  frames["low_fee_sensitivity"], frames["pool_summary"])
+    export_month(args.out, replace=args.replace)
 
 
 if __name__ == "__main__":

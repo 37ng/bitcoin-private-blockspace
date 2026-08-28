@@ -24,12 +24,14 @@ uv run python run_pipeline.py --dry-run        # what each step would scan
 uv run python run_pipeline.py --month 2023-04  # one month, end to end
 ```
 
-Then validate and write the outputs:
+Then validate and write the outputs. `out/` is tracked in git and each run
+merges into it, keyed by month, so running a new month every month appends to
+the history rather than replacing it:
 
 ```bash
 uv run python sanity_check.py             # pool shares vs public hashrate data
 uv run python validate_against_mempool.py # low-fee txs vs mempool.space audits
-uv run python export_results.py           # CSVs, headline.json, summary.md
+uv run python export_results.py           # merge the run into out/*.json
 ```
 
 ## Reading the result

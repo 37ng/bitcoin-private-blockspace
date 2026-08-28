@@ -136,12 +136,37 @@ uv run python run_pipeline.py --month 2023-04
 uv run python delete_dataset.py
 ```
 
-`--month` runs the full step list for that month, then exports it into
-`out/` (merging into any earlier months already there — see
-`export_results.py`). The BigQuery working dataset itself is left in place
-so you can inspect it; once the local files hold what you need,
+`--month` runs the full step list for that month, then merges it into the
+JSON files in `out/`. The BigQuery working dataset itself is left in place so
+you can inspect it; once the local files hold what you need,
 `delete_dataset.py` drops it so storage does not grow across months. Local
 output stays on the order of megabytes per month.
+
+## The output files
+
+`out/` is tracked in git, so the answer grows with the repository rather than
+being rebuilt from scratch each time. Every table is a JSON array of records:
+
+    monthly_summary.json      per month: low-fee space, share, value bands
+    pool_summary.json         the same per pool
+    low_fee_sensitivity.json  the 3x3 threshold grid, per month
+    low_fee_txs_sample.json   the 5,000 largest low-fee transactions
+    headline.json             the numbers quoted in the write-up
+    summary.md                a readable digest of all of the above
+
+The merge is keyed on `block_month`. `export_results.py` reads the months the
+working dataset holds, drops exactly those months from each file, and writes
+the fresh rows in their place. Months the run did not touch are untouched, so
+a run only ever adds to the history — and re-running a month you already have
+replaces it instead of double-counting it. That is why step 08 groups the
+sensitivity grid by month too: its cells are sums, and they are summed across
+months only when `summary.md` and `headline.json` are written.
+
+`headline.json` and `summary.md` are derived files. They are rewritten from
+the full merged tables on every export, so they always cover every month on
+disk. `export_results.py --replace` ignores what is on disk and writes only
+what the working dataset holds; use it to rebuild the files from a full-window
+dataset.
 
 ## The accelerations dataset
 
