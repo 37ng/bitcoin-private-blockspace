@@ -155,6 +155,7 @@ only ever touches `BQ_DATASET` — cannot take it out between months.
 ```bash
 uv run python fetch_accelerations.py          # top up: read only what is new
 uv run python fetch_accelerations.py --full   # re-crawl the whole history
+uv run python fetch_accelerations.py --since 2024-01-01 --until 2024-04-01
 uv run python run_accelerations.py            # build the summary tables from it
 ```
 
@@ -181,6 +182,35 @@ Every walk reads `--overlap` pages beyond the new ones, and the stats call
 adds one request, so a top-up with nothing to fetch still costs three
 requests.
 
+### Fetching a range
+
+`--until` asks for a slice instead of a top-up: the records added between
+`--since` (the start of the history when left out) and `--until`. That four
+hour `--full` row is the reason the flag exists — a range can be fetched a
+month at a time, in any order, over as many sittings as it takes.
+
+Nothing has to be tracked between those sittings. A range is appended on the
+same `(txid, added)` key as a top-up, so a range already loaded costs a re-read
+and no rows, and overlapping ranges are safe to ask for. Only `--full` ever
+replaces the table.
+
+The entry page is the part that would otherwise be expensive: a range ending a
+year back sits ~600 pages down, and walking there costs one request per page
+passed. The list is sorted, so the entry page is found by halving the page
+range instead — about 10 requests for 600 pages, and the walk starts
+`--overlap` pages above what it finds. A three month range a year back
+therefore costs about 10 seek requests plus the ~75 pages it actually reads,
+not 675.
+
+The seek is safe for the reason the walk is. New records only push records
+towards higher page numbers, so a page measured during the seek can only have
+become newer by the time the walk reaches it — the walk then starts slightly
+too high, which costs a page, never a record.
+
+`--max-pages` counts walked pages only, so `--until X --max-pages 3` reads the
+first three pages of the range after seeking to it. That is the cheap way to
+check a range holds what you expect before paying for all of it.
+
 The pace is deliberately slower than the API forces. It publishes no rate
 limit, and at one request a second it pushed back constantly enough that the
 backoff, not the sleep, set the real rate — about 5 pages a minute either way.
@@ -203,8 +233,9 @@ Three properties make the partial walk safe, and all three are tested in
   Because `added` never changes, the same key also collapses a record the API
   returned twice.
 
-The load is `WRITE_APPEND` of what is missing, so a short or interrupted
-top-up can never shrink the table. Only `--full` replaces it.
+The load is `WRITE_APPEND` of what is missing, so a top-up, a range, or a run
+cut short by `--max-pages` can never shrink the table. Only a `--full` crawl
+that reached the end of the history replaces it.
 
 All of it rests on the list being append-only, which was checked rather than
 assumed: re-fetching a year of history nine days after the first load returned
