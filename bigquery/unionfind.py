@@ -7,10 +7,24 @@ block collapses to a single package, whatever the shape — a chain, a fan of
 children on one parent, or several parents funded by one child. A transaction
 with no in-block relative is a package of one.
 
+The same pass also walks the graph in its directed form, upwards, to count
+each transaction's in-block ancestors. Mempool policy caps how many
+unconfirmed ancestors a transaction may have, and transactions confirmed in
+one block were all unconfirmed at the same moment, so an over-long ancestor
+chain in a block is a chain no default node would have relayed. Step 04d
+turns the counts into a non-relayable reason.
+
 Pure Python, no BigQuery import, so the fixture tests run offline.
 """
 
 from collections import defaultdict
+
+# Ancestor counting stops here. Every rule that reads the count only asks
+# whether it is over a limit, and the largest limit is 25, so a walk that has
+# already found 26 distinct ancestors has answered every question that will be
+# put to it. Without the stop, one block-wide CPFP graph would be walked once
+# per member.
+ANCESTOR_CAP = 26
 
 
 class UnionFind:
@@ -57,7 +71,7 @@ class UnionFind:
         return dict(out)
 
 
-def package_transactions(txs):
+def package_transactions(txs, ancestor_cap=ANCESTOR_CAP):
     """Group one block's transactions into CPFP packages.
 
     `txs` is an iterable of objects or mappings with `tx_hash`, `fee`,
@@ -67,13 +81,14 @@ def package_transactions(txs):
 
     Returns a list of dicts, one per input transaction:
         tx_hash, package_id, package_tx_count, package_fee, package_vsize,
-        effective_fee_rate
+        effective_fee_rate, ancestor_count, ancestor_vsize
 
     `package_id` is the smallest member hash, so the same block always yields
     the same ids whatever order the rows arrive in.
     """
     rows = [_as_row(t) for t in txs]
     by_hash = {r["tx_hash"]: r for r in rows}
+    ancestors = ancestor_stats(by_hash, ancestor_cap)
 
     uf = UnionFind(by_hash)
     for row in rows:
@@ -88,6 +103,7 @@ def package_transactions(txs):
         vsize = sum(by_hash[h]["virtual_size"] for h in members)
         rate = (fee / vsize) if vsize else None
         for tx_hash in members:
+            count, ancestor_vsize = ancestors[tx_hash]
             out.append({
                 "tx_hash": tx_hash,
                 "package_id": package_id,
@@ -95,9 +111,47 @@ def package_transactions(txs):
                 "package_fee": fee,
                 "package_vsize": vsize,
                 "effective_fee_rate": rate,
+                "ancestor_count": count,
+                "ancestor_vsize": ancestor_vsize,
             })
     out.sort(key=lambda r: (r["package_id"], r["tx_hash"]))
     return out
+
+
+def ancestor_stats(by_hash, cap=ANCESTOR_CAP):
+    """{tx_hash: (ancestor_count, ancestor_vsize)} over one block.
+
+    Both figures count the transaction itself, which is what the mempool
+    limits count. Only parents confirmed in the same block are followed: a
+    parent already confirmed does not count against an unconfirmed-ancestor
+    limit.
+
+    The walk stops at `cap` distinct ancestors, so a count that reaches the
+    cap means "at least this many" and the vbyte sum that comes with it is
+    partial. Every rule reading these is a "more than" test with a limit below
+    the cap, so a capped answer decides it either way.
+    """
+    stats = {}
+    for tx_hash, row in by_hash.items():
+        seen = {tx_hash}
+        vsize = row["virtual_size"]
+        frontier = [tx_hash]
+        while frontier and len(seen) < cap:
+            parents = []
+            for member in frontier:
+                for parent in by_hash[member]["parent_hashes"]:
+                    if parent not in by_hash or parent in seen:
+                        continue           # same-block parents only
+                    seen.add(parent)
+                    vsize += by_hash[parent]["virtual_size"]
+                    parents.append(parent)
+                    if len(seen) >= cap:
+                        break
+                if len(seen) >= cap:
+                    break
+            frontier = parents
+        stats[tx_hash] = (len(seen), vsize)
+    return stats
 
 
 def _as_row(tx):

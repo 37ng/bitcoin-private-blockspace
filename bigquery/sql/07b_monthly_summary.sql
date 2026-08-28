@@ -48,9 +48,18 @@ nonrelayable AS (
     block_month,
     COUNTIF(is_nonrelayable) AS nonrelayable_txs,
     SUM(IF(is_nonrelayable, virtual_size, 0)) AS nonrelayable_vbytes,
+    COUNTIF(nonrelay_nonstandard_script) AS nonstandard_script_txs,
     COUNTIF(nonrelay_bare_multisig) AS bare_multisig_txs,
     COUNTIF(nonrelay_op_return) AS op_return_txs,
+    COUNTIF(nonrelay_multi_op_return) AS multi_op_return_txs,
+    COUNTIF(nonrelay_dust) AS dust_txs,
+    COUNTIF(nonrelay_version) AS version_txs,
+    COUNTIF(nonrelay_truc) AS truc_txs,
     COUNTIF(nonrelay_oversized) AS oversized_txs,
+    COUNTIF(nonrelay_undersized) AS undersized_txs,
+    COUNTIF(nonrelay_scriptsig_size) AS scriptsig_size_txs,
+    COUNTIF(nonrelay_scriptsig_nonpush) AS scriptsig_nonpush_txs,
+    COUNTIF(nonrelay_ancestor_limit) AS ancestor_limit_txs,
     COUNTIF(nonrelay_sub_minrelay) AS sub_minrelay_txs
   FROM `${dst}.txs`
   WHERE NOT is_coinbase
@@ -79,9 +88,18 @@ SELECT
   n.nonrelayable_txs,
   n.nonrelayable_vbytes,
   SAFE_DIVIDE(n.nonrelayable_vbytes, a.all_vbytes) AS nonrelayable_vbytes_share,
+  n.nonstandard_script_txs,
   n.bare_multisig_txs,
   n.op_return_txs,
+  n.multi_op_return_txs,
+  n.dust_txs,
+  n.version_txs,
+  n.truc_txs,
   n.oversized_txs,
+  n.undersized_txs,
+  n.scriptsig_size_txs,
+  n.scriptsig_nonpush_txs,
+  n.ancestor_limit_txs,
   n.sub_minrelay_txs
 FROM all_totals AS a
 LEFT JOIN full_block_totals AS fb USING (block_month)

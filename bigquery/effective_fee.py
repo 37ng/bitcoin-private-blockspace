@@ -30,6 +30,10 @@ PACKAGE_SCHEMA = [
     ("package_fee", "INTEGER"),
     ("package_vsize", "INTEGER"),
     ("effective_fee_rate", "FLOAT"),
+    # In-block ancestors, the transaction included, capped by
+    # `unionfind.ANCESTOR_CAP`. Step 04d reads these.
+    ("ancestor_count", "INTEGER"),
+    ("ancestor_vsize", "INTEGER"),
 ]
 
 
