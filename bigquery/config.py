@@ -68,7 +68,7 @@ if MONTH:
 # caught are treated as relayable from the release date on, even though most
 # of the network had not upgraded yet. When a release tightens one, the new
 # rule starts on the release date. Anything the rule in force does not
-# unambiguously reject stays out of the flags.
+# unambiguously reject stays out of the reasons.
 
 # Core v30 (2025-10-08) raised the OP_RETURN datacarrier limit to the standard
 # transaction size, made the limit apply to the sum of the OP_RETURN
@@ -121,7 +121,7 @@ MAX_SCRIPT_SIZE = 10_000
 # Core 31.0 (2026-04-20) replaced the ancestor and descendant limits with
 # cluster limits: a connected component of the mempool may hold 64
 # transactions and 101 kvB. A cluster over that limit says that some member
-# was refused, but not which one, so nothing is flagged from that date on.
+# was refused, but not which one, so nothing is counted from that date on.
 CLUSTER_MEMPOOL_DATE = "2026-04-20"
 ANCESTOR_LIMIT = 25            # the transaction plus its unconfirmed ancestors
 ANCESTOR_SIZE_LIMIT_VB = 101_000
@@ -149,7 +149,7 @@ BLOCK_WEIGHT_FULL = 3_900_000
 # ...and it counts as full only when demand was sustained around it.
 FULL_NEIGHBOURS_REQUIRED = 4  # of the 6 neighbours
 
-# --- Low-fee flag sensitivity --------------------------------------------
+# --- Low-fee sensitivity --------------------------------------------------
 
 SENSITIVITIES = (0.3, 0.5, 0.7)
 FULLNESS_GRID = (3_850_000, 3_900_000, 3_950_000)
@@ -157,7 +157,7 @@ FULLNESS_GRID = (3_850_000, 3_900_000, 3_950_000)
 PRIMARY_SENSITIVITY = 0.5  # headline number; always report the grid with it
 
 # --- Revenue bands -------------------------------------------------------
-# The two bounds on what flagged space was worth. See `07_revenue_bands.sql`
+# The two bounds on what low-fee space was worth. See `07_revenue_bands.sql`
 # for what each band means. They live here because step 07 and step 07c both
 # compute them, and a formula written twice is a formula that drifts.
 #
@@ -166,17 +166,17 @@ LOWER_BAND_SATS = ("GREATEST(b.floor_fee_rate - t.effective_fee_rate, 0)"
                    " * t.virtual_size")
 UPPER_BAND_SATS = "b.median_fee_rate * t.virtual_size"
 
-# A full block with no floor can hold no flagged transaction, so it belongs in
+# A full block with no floor can hold no low-fee transaction, so it belongs in
 # no denominator. `is_full` is set from weight and neighbour count alone and
 # does not imply a floor, so every share must test for both.
 FULL_AND_PRICED = "b.is_full AND b.floor_fee_rate IS NOT NULL"
 
-# The space every share is measured against. The low-fee flag never fires on
-# non-relayable traffic (step 06b): it never entered the public auction, so its
-# price says nothing about a discount. Space that can never reach the numerator
-# would only deflate the share, so it stays out of the denominator too. Step 08
-# applies the same three tests under its own aliases.
-COUNTABLE_SPACE = FULL_AND_PRICED + " AND NOT t.is_nonrelayable"
+# The space every low-fee share is measured against. The low-fee test never
+# fires on non-relayable traffic (step 06b): it never entered the public
+# auction, so its price says nothing about a discount. Space that can never
+# reach the numerator would only deflate the share, so it stays out of the
+# denominator too. Step 08 applies the same three tests under its own aliases.
+LOW_FEE_DENOMINATOR = FULL_AND_PRICED + " AND NOT t.is_nonrelayable"
 
 # --- Pipeline mechanics --------------------------------------------------
 
@@ -255,5 +255,5 @@ def template_vars() -> dict:
         "lower_band_sats": LOWER_BAND_SATS,
         "upper_band_sats": UPPER_BAND_SATS,
         "full_and_priced": FULL_AND_PRICED,
-        "countable_space": COUNTABLE_SPACE,
+        "low_fee_denominator": LOW_FEE_DENOMINATOR,
     }

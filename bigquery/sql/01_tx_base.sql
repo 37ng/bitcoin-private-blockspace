@@ -16,9 +16,9 @@
 -- the question. An OP_RETURN payload is taken as standard without checking
 -- that it is push-only, and a multisig template is taken as standard without
 -- counting its pubkeys against the declared n. Both of those let a
--- non-standard output through as standard. Neither can flag a relayable
--- transaction, which is the error that would matter: a false flag deletes a
--- real transaction from the measurement.
+-- non-standard output through as standard. Neither can make a relayable
+-- transaction look non-relayable, which is the error that would matter: a
+-- false reason deletes a real transaction from the measurement.
 CREATE OR REPLACE TABLE `${dst}.tx_base`
 PARTITION BY block_month
 CLUSTER BY block_number

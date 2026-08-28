@@ -34,9 +34,9 @@
 -- accepted such packages from the public mempool for years, and after Core 28
 -- (${package_relay_date}) 1p1c package relay propagates them across the
 -- network too. Only a sub-minimum transaction with no paying in-block child is
--- unambiguously non-relayable, so that is what `flag_sub_minrelay` records.
+-- unambiguously non-relayable, so that is what `nonrelay_sub_minrelay` records.
 --
--- `flag_ancestor_limit` needs the ancestor closure of the CPFP graph, which
+-- `nonrelay_ancestor_limit` needs the ancestor closure of the CPFP graph, which
 -- only exists once step 04 has built the packages. It is created FALSE here
 -- and filled by step 04d, which is also the only step allowed to add to
 -- `is_nonrelayable` afterwards.
@@ -44,7 +44,7 @@ CREATE OR REPLACE TABLE `${dst}.txs`
 PARTITION BY block_month
 CLUSTER BY block_number
 OPTIONS (
-  description = "Per-transaction facts, relay flags, CPFP parents, and effective fee rate."
+  description = "Per-transaction facts, non-relayable reasons, CPFP parents, and effective fee rate."
 )
 AS
 WITH base AS (
@@ -110,7 +110,7 @@ child_agg AS (
   FROM edges
   GROUP BY tx_hash
 ),
-flagged AS (
+with_reasons AS (
   SELECT
     b.*,
     COALESCE(p.parent_hashes, ARRAY<STRING>[]) AS parent_hashes,
@@ -121,21 +121,21 @@ flagged AS (
     -- reads only these rows into Python
     (p.tx_hash IS NOT NULL OR c.tx_hash IS NOT NULL) AS in_package,
 
-    -- Non-relayable flags. A coinbase transaction is never flagged: it is
-    -- never relayed and never bids for space. Every flag is COALESCEd to
+    -- Non-relayable reasons. A coinbase transaction never has one: it is
+    -- never relayed and never bids for space. Every reason is COALESCEd to
     -- FALSE, so a missing field in the source can only under-report -- a NULL
     -- reaching `is_nonrelayable` would quietly drop the transaction from the
     -- denominator in step 07b.
     COALESCE(NOT b.is_coinbase AND b.nonstandard_outputs > 0, FALSE)
-      AS flag_nonstandard_script,
+      AS nonrelay_nonstandard_script,
     COALESCE(NOT b.is_coinbase AND b.bare_multisig_max_n > ${bare_multisig_max_n}, FALSE)
-      AS flag_bare_multisig,
+      AS nonrelay_bare_multisig,
     COALESCE(NOT b.is_coinbase AND b.datacarrier_bytes > b.datacarrier_limit, FALSE)
-      AS flag_op_return,
+      AS nonrelay_op_return,
     COALESCE(NOT b.is_coinbase
        AND b.block_timestamp < TIMESTAMP('${datacarrier_lift_date}')
        AND b.op_return_count > 1, FALSE)
-      AS flag_multi_op_return,
+      AS nonrelay_multi_op_return,
     -- Before Core 29 no dust was allowed at all, and the test skipped bare
     -- multisig outputs. From Core 29 one dust output is allowed, but only on
     -- a transaction that pays no fee and has a child to spend the dust.
@@ -146,11 +146,11 @@ flagged AS (
         OR (b.dust_outputs > 0
             AND NOT (COALESCE(b.fee, 0) = 0 AND COALESCE(c.child_count, 0) > 0))),
       FALSE)
-      AS flag_dust,
+      AS nonrelay_dust,
     COALESCE(NOT b.is_coinbase
        AND (b.version < ${tx_version_min} OR b.version > b.max_standard_version),
       FALSE)
-      AS flag_version,
+      AS nonrelay_version,
     -- TRUC, from the day version 3 became standard. A version 3 transaction
     -- has its own size ceiling, a smaller one again when it spends an
     -- unconfirmed output, and may not share a package with a non-TRUC parent.
@@ -161,20 +161,20 @@ flagged AS (
              AND b.virtual_size > ${truc_child_max_vsize})
          OR COALESCE(p.has_truc_version_clash, FALSE)),
       FALSE)
-      AS flag_truc,
+      AS nonrelay_truc,
     COALESCE(NOT b.is_coinbase AND b.virtual_size > ${max_standard_vsize}, FALSE)
-      AS flag_oversized,
+      AS nonrelay_oversized,
     COALESCE(NOT b.is_coinbase
        AND b.max_nonwitness_size < ${min_standard_nonwitness_size}, FALSE)
-      AS flag_undersized,
+      AS nonrelay_undersized,
     COALESCE(NOT b.is_coinbase
        AND b.max_scriptsig_bytes > ${max_standard_scriptsig_size}, FALSE)
-      AS flag_scriptsig_size,
+      AS nonrelay_scriptsig_size,
     COALESCE(NOT b.is_coinbase AND b.opens_with_nonpush_opcode, FALSE)
-      AS flag_scriptsig_nonpush,
+      AS nonrelay_scriptsig_nonpush,
     COALESCE(NOT b.is_coinbase AND b.raw_fee_rate < b.min_relay_rate
        AND NOT COALESCE(c.has_paying_child, FALSE), FALSE)
-      AS flag_sub_minrelay
+      AS nonrelay_sub_minrelay
   FROM base AS b
   LEFT JOIN parent_agg AS p USING (tx_hash)
   LEFT JOIN child_agg AS c USING (tx_hash)
@@ -203,25 +203,25 @@ SELECT
   has_paying_child,
   has_in_block_parent,
 
-  flag_nonstandard_script,
-  flag_bare_multisig,
-  flag_op_return,
-  flag_multi_op_return,
-  flag_dust,
-  flag_version,
-  flag_truc,
-  flag_oversized,
-  flag_undersized,
-  flag_scriptsig_size,
-  flag_scriptsig_nonpush,
-  flag_sub_minrelay,
+  nonrelay_nonstandard_script,
+  nonrelay_bare_multisig,
+  nonrelay_op_return,
+  nonrelay_multi_op_return,
+  nonrelay_dust,
+  nonrelay_version,
+  nonrelay_truc,
+  nonrelay_oversized,
+  nonrelay_undersized,
+  nonrelay_scriptsig_size,
+  nonrelay_scriptsig_nonpush,
+  nonrelay_sub_minrelay,
   -- Filled by step 04d, once the CPFP packages exist.
-  FALSE AS flag_ancestor_limit,
+  FALSE AS nonrelay_ancestor_limit,
 
-  (flag_nonstandard_script OR flag_bare_multisig OR flag_op_return
-   OR flag_multi_op_return OR flag_dust OR flag_version OR flag_truc
-   OR flag_oversized OR flag_undersized OR flag_scriptsig_size
-   OR flag_scriptsig_nonpush OR flag_sub_minrelay) AS is_nonrelayable,
+  (nonrelay_nonstandard_script OR nonrelay_bare_multisig OR nonrelay_op_return
+   OR nonrelay_multi_op_return OR nonrelay_dust OR nonrelay_version OR nonrelay_truc
+   OR nonrelay_oversized OR nonrelay_undersized OR nonrelay_scriptsig_size
+   OR nonrelay_scriptsig_nonpush OR nonrelay_sub_minrelay) AS is_nonrelayable,
 
   in_package,
 
@@ -233,8 +233,8 @@ SELECT
   IF(NOT in_package AND NOT is_coinbase, tx_hash, NULL) AS package_id,
   IF(NOT in_package AND NOT is_coinbase, 1, NULL) AS package_tx_count,
 
-  -- the low-fee flags, filled by step 06b
+  -- the low-fee columns, filled by step 06b
   CAST(NULL AS BOOL) AS low_fee_30,
   CAST(NULL AS BOOL) AS low_fee_50,
   CAST(NULL AS BOOL) AS low_fee_70
-FROM flagged
+FROM with_reasons

@@ -12,7 +12,7 @@ each transaction's in-block ancestors. Mempool policy caps how many
 unconfirmed ancestors a transaction may have, and transactions confirmed in
 one block were all unconfirmed at the same moment, so an over-long ancestor
 chain in a block is a chain no default node would have relayed. Step 04d
-turns the counts into a flag.
+turns the counts into a non-relayable reason.
 
 Pure Python, no BigQuery import, so the fixture tests run offline.
 """

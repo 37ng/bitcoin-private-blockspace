@@ -10,7 +10,7 @@ pointed at an inline table of outputs. There is no second implementation to
 drift out of sync. Inline data scans no bytes, so the queries are free, but
 they do run, and running needs credentials:
 
-    BQ_FIXTURES=1 pytest tests/test_relay_flags.py
+    BQ_FIXTURES=1 pytest tests/test_relay_rules.py
 
 Without the variable they skip, so `pytest tests/` stays offline.
 """
@@ -117,10 +117,10 @@ NONSTANDARD = [WITNESS_V0_BAD_SIZE, MULTISIG_3_OF_2, P2PK_BAD_HEADER, GARBAGE]
 
 @requires_bigquery
 @pytest.mark.parametrize("script", STANDARD)
-def test_standard_scripts_are_not_flagged(script):
+def test_standard_scripts_carry_no_reason(script):
     """Every template Core's `Solver` names must pass.
 
-    A false flag here would drop a relayable transaction out of the
+    A false reason here would drop a relayable transaction out of the
     measurement, which is the error that matters.
     """
     assert classify([(script, 100_000)])["nonstandard_outputs"] == 0
@@ -128,7 +128,7 @@ def test_standard_scripts_are_not_flagged(script):
 
 @requires_bigquery
 @pytest.mark.parametrize("script", NONSTANDARD)
-def test_nonstandard_scripts_are_flagged(script):
+def test_nonstandard_scripts_are_counted(script):
     assert classify([(script, 100_000)])["nonstandard_outputs"] == 1
 
 
@@ -243,7 +243,7 @@ def _tx_base_row(overrides):
         for name, _type, default in TX_BASE_COLUMNS)
 
 
-def flags(*rows):
+def reasons(*rows):
     """Run step 03 over an inline `tx_base`; return {tx_hash: row}."""
     fixture = "\n  UNION ALL ".join(_tx_base_row(r) for r in rows)
     sql = bqio.render("03_txs.sql")
@@ -265,20 +265,20 @@ def at(date, **overrides):
 @requires_bigquery
 def test_the_minimum_relay_fee_gate_moves_on_the_release_date():
     """0.5 sat/vB was under the minimum until Core 29.1, and over it after."""
-    out = flags(
+    out = reasons(
         at("2025-09-03", tx_hash="'before'", fee="500", virtual_size="1000"),
         at("2025-09-05", tx_hash="'after'", fee="500", virtual_size="1000"),
         at("2025-09-05", tx_hash="'still_under'", fee="50", virtual_size="1000"),
     )
-    assert out["before"]["flag_sub_minrelay"] is True
-    assert out["after"]["flag_sub_minrelay"] is False
-    assert out["still_under"]["flag_sub_minrelay"] is True
+    assert out["before"]["nonrelay_sub_minrelay"] is True
+    assert out["after"]["nonrelay_sub_minrelay"] is False
+    assert out["still_under"]["nonrelay_sub_minrelay"] is True
 
 
 @requires_bigquery
 def test_the_datacarrier_gate_moves_on_the_release_date():
     """84 bytes of OP_RETURN was over the limit until Core v30."""
-    out = flags(
+    out = reasons(
         at("2025-10-07", tx_hash="'before'", op_return_count="1",
            op_return_max_bytes="84", op_return_total_bytes="84"),
         at("2025-10-09", tx_hash="'after'", op_return_count="1",
@@ -286,41 +286,41 @@ def test_the_datacarrier_gate_moves_on_the_release_date():
         at("2025-10-09", tx_hash="'over_the_new_limit'", op_return_count="3",
            op_return_max_bytes="60000", op_return_total_bytes="120000"),
     )
-    assert out["before"]["flag_op_return"] is True
-    assert out["after"]["flag_op_return"] is False
-    assert out["over_the_new_limit"]["flag_op_return"] is True
+    assert out["before"]["nonrelay_op_return"] is True
+    assert out["after"]["nonrelay_op_return"] is False
+    assert out["over_the_new_limit"]["nonrelay_op_return"] is True
 
 
 @requires_bigquery
 def test_a_second_op_return_output_is_non_standard_only_before_v30():
-    out = flags(
+    out = reasons(
         at("2025-10-07", tx_hash="'before'", op_return_count="2",
            op_return_max_bytes="20", op_return_total_bytes="40"),
         at("2025-10-09", tx_hash="'after'", op_return_count="2",
            op_return_max_bytes="20", op_return_total_bytes="40"),
     )
-    assert out["before"]["flag_multi_op_return"] is True
-    assert out["after"]["flag_multi_op_return"] is False
+    assert out["before"]["nonrelay_multi_op_return"] is True
+    assert out["after"]["nonrelay_multi_op_return"] is False
 
 
 @requires_bigquery
 def test_the_standard_version_range_widens_when_truc_ships():
-    out = flags(
+    out = reasons(
         at("2024-10-03", tx_hash="'v3_before'", version="3"),
         at("2024-10-05", tx_hash="'v3_after'", version="3"),
         at("2024-10-05", tx_hash="'v4_after'", version="4"),
         at("2024-10-05", tx_hash="'v0_after'", version="0"),
     )
-    assert out["v3_before"]["flag_version"] is True
-    assert out["v3_after"]["flag_version"] is False
-    assert out["v4_after"]["flag_version"] is True
-    assert out["v0_after"]["flag_version"] is True
+    assert out["v3_before"]["nonrelay_version"] is True
+    assert out["v3_after"]["nonrelay_version"] is False
+    assert out["v4_after"]["nonrelay_version"] is True
+    assert out["v0_after"]["nonrelay_version"] is True
 
 
 @requires_bigquery
 def test_the_dust_gate_moves_when_ephemeral_dust_ships():
     """One dust output became standard, but only on a 0-fee parent."""
-    out = flags(
+    out = reasons(
         at("2025-04-14", tx_hash="'before'", dust_outputs="1",
            dust_outputs_excl_multisig="1"),
         at("2025-04-16", tx_hash="'paying'", dust_outputs="1",
@@ -328,15 +328,15 @@ def test_the_dust_gate_moves_when_ephemeral_dust_ships():
         at("2025-04-16", tx_hash="'two'", dust_outputs="2",
            dust_outputs_excl_multisig="2", fee="0"),
     )
-    assert out["before"]["flag_dust"] is True
-    assert out["paying"]["flag_dust"] is True      # pays a fee, so not ephemeral
-    assert out["two"]["flag_dust"] is True
+    assert out["before"]["nonrelay_dust"] is True
+    assert out["paying"]["nonrelay_dust"] is True      # pays a fee, so not ephemeral
+    assert out["two"]["nonrelay_dust"] is True
 
 
 @requires_bigquery
 def test_ephemeral_dust_needs_a_zero_fee_parent_and_a_child():
     """The 0-fee parent with the child that spends its dust is the standard case."""
-    out = flags(
+    out = reasons(
         at("2025-06-01", tx_hash="'parent'", fee="0", dust_outputs="1",
            dust_outputs_excl_multisig="1"),
         at("2025-06-01", tx_hash="'child'", fee="5000", virtual_size="1000",
@@ -344,51 +344,51 @@ def test_ephemeral_dust_needs_a_zero_fee_parent_and_a_child():
         at("2025-06-01", tx_hash="'lonely'", fee="0", dust_outputs="1",
            dust_outputs_excl_multisig="1"),
     )
-    assert out["parent"]["flag_dust"] is False
-    assert out["lonely"]["flag_dust"] is True
+    assert out["parent"]["nonrelay_dust"] is False
+    assert out["lonely"]["nonrelay_dust"] is True
 
 
 @requires_bigquery
 def test_a_transaction_under_65_non_witness_bytes_is_non_standard():
-    out = flags(
+    out = reasons(
         at("2024-01-01", tx_hash="'tiny'", virtual_size="64", serialized_size="64"),
         at("2024-01-01", tx_hash="'small'", virtual_size="65", serialized_size="65"),
         # A witness transaction: base = (4 * 100 - 200) / 3 = 66 bytes.
         at("2024-01-01", tx_hash="'witness'", virtual_size="100",
            serialized_size="200"),
     )
-    assert out["tiny"]["flag_undersized"] is True
-    assert out["small"]["flag_undersized"] is False
-    assert out["witness"]["flag_undersized"] is False
+    assert out["tiny"]["nonrelay_undersized"] is True
+    assert out["small"]["nonrelay_undersized"] is False
+    assert out["witness"]["nonrelay_undersized"] is False
 
 
 @requires_bigquery
 def test_the_scriptsig_rules_have_no_gate():
-    out = flags(
+    out = reasons(
         at("2023-05-01", tx_hash="'big'", max_scriptsig_bytes="1651"),
         at("2023-05-01", tx_hash="'at_the_limit'", max_scriptsig_bytes="1650"),
         at("2026-05-01", tx_hash="'nonpush'", opens_with_nonpush_opcode="TRUE"),
     )
-    assert out["big"]["flag_scriptsig_size"] is True
-    assert out["at_the_limit"]["flag_scriptsig_size"] is False
-    assert out["nonpush"]["flag_scriptsig_nonpush"] is True
+    assert out["big"]["nonrelay_scriptsig_size"] is True
+    assert out["at_the_limit"]["nonrelay_scriptsig_size"] is False
+    assert out["nonpush"]["nonrelay_scriptsig_nonpush"] is True
 
 
 @requires_bigquery
 def test_the_truc_size_rules_start_with_core_28():
-    out = flags(
+    out = reasons(
         at("2024-10-05", tx_hash="'too_big'", version="3", virtual_size="10001"),
         at("2024-10-05", tx_hash="'ok'", version="3", virtual_size="10000"),
         at("2024-10-05", tx_hash="'v2_big'", version="2", virtual_size="20000"),
     )
-    assert out["too_big"]["flag_truc"] is True
-    assert out["ok"]["flag_truc"] is False
-    assert out["v2_big"]["flag_truc"] is False
+    assert out["too_big"]["nonrelay_truc"] is True
+    assert out["ok"]["nonrelay_truc"] is False
+    assert out["v2_big"]["nonrelay_truc"] is False
 
 
 @requires_bigquery
 def test_a_truc_child_is_capped_smaller_and_may_not_mix_versions():
-    out = flags(
+    out = reasons(
         at("2025-01-01", tx_hash="'parent'", version="3", virtual_size="500"),
         at("2025-01-01", tx_hash="'fat_child'", version="3", virtual_size="1001",
            input_hashes="['parent']"),
@@ -396,37 +396,37 @@ def test_a_truc_child_is_capped_smaller_and_may_not_mix_versions():
         at("2025-01-01", tx_hash="'mixed_child'", version="3", virtual_size="500",
            input_hashes="['v2_parent']"),
     )
-    assert out["fat_child"]["flag_truc"] is True
-    assert out["mixed_child"]["flag_truc"] is True
-    assert out["parent"]["flag_truc"] is False
+    assert out["fat_child"]["nonrelay_truc"] is True
+    assert out["mixed_child"]["nonrelay_truc"] is True
+    assert out["parent"]["nonrelay_truc"] is False
 
 
 @requires_bigquery
 def test_a_coinbase_transaction_is_never_non_relayable():
     """It is never relayed and never bids for space, so no rule applies to it."""
-    out = flags(at("2024-01-01", tx_hash="'cb'", is_coinbase="TRUE", fee="0",
+    out = reasons(at("2024-01-01", tx_hash="'cb'", is_coinbase="TRUE", fee="0",
                    nonstandard_outputs="3", dust_outputs="2", version="9",
                    virtual_size="30", serialized_size="30"))
     assert out["cb"]["is_nonrelayable"] is False
 
 
 @requires_bigquery
-def test_a_sub_minimum_parent_with_a_paying_child_is_not_flagged():
+def test_a_sub_minimum_parent_with_a_paying_child_has_no_reason():
     """Ordinary CPFP, which miners have accepted from the public mempool for years."""
-    out = flags(
+    out = reasons(
         at("2024-01-01", tx_hash="'parent'", fee="0", virtual_size="1000"),
         at("2024-01-01", tx_hash="'child'", fee="10000", virtual_size="1000",
            input_hashes="['parent']"),
     )
-    assert out["parent"]["flag_sub_minrelay"] is False
+    assert out["parent"]["nonrelay_sub_minrelay"] is False
     assert out["parent"]["is_nonrelayable"] is False
 
 
 @requires_bigquery
-def test_an_ordinary_transaction_carries_no_flag_at_all():
+def test_an_ordinary_transaction_carries_no_reason_at_all():
     """The guard against a rule that fires on everything."""
-    out = flags(at("2024-06-01", tx_hash="'plain'"))
+    out = reasons(at("2024-06-01", tx_hash="'plain'"))
     row = out["plain"]
     assert row["is_nonrelayable"] is False
     assert not [k for k in row.keys()
-                if k.startswith("flag_") and row[k]], "a flag fired on a plain tx"
+                if k.startswith("nonrelay_") and row[k]], "a rule fired on a plain tx"

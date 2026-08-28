@@ -1,7 +1,7 @@
--- Step 06b: the low-fee flag — space that sold below the going rate in a
+-- Step 06b: the low-fee test — space that sold below the going rate in a
 -- full block.
 --
--- A transaction is flagged when all of the following hold:
+-- A transaction is low-fee when all of the following hold:
 --   its block is full (step 06a), so the space had a market price;
 --   the block has a neighbour-derived floor (step 05);
 --   the transaction is relayable, so it could have taken part in the public

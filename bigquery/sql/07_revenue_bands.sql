@@ -1,4 +1,4 @@
--- Step 07: what the flagged space was worth.
+-- Step 07: what the low-fee space was worth.
 --
 -- Two bands, because the true figure is not observable on chain:
 --
@@ -12,8 +12,8 @@
 --
 -- The truth sits between them. Neither is a measurement of a private payment,
 -- which happens off chain and leaves no record here; both bound it.
-CREATE OR REPLACE TABLE `${dst}.flagged_txs`
-OPTIONS (description = "Flagged transactions with their block context and revenue bands.")
+CREATE OR REPLACE TABLE `${dst}.low_fee_txs`
+OPTIONS (description = "Low-fee transactions with their block context and revenue bands.")
 AS
 SELECT
   t.tx_hash,
@@ -40,4 +40,4 @@ SELECT
   ${upper_band_sats} AS upper_band_sats
 FROM `${dst}.txs` AS t
 JOIN `${dst}.blocks` AS b USING (block_number)
-WHERE t.low_fee_70   -- the widest flag; narrower ones are subsets
+WHERE t.low_fee_70   -- the widest threshold; narrower ones are subsets

@@ -70,7 +70,7 @@ def test_grouping_splits_on_block_boundaries():
 # Mempool policy caps a transaction's unconfirmed ancestors. Everything in one
 # block was unconfirmed together, so an in-block ancestor chain longer than the
 # cap is a chain no default node would have relayed. Step 04d turns these
-# counts into a flag.
+# counts into a non-relayable reason.
 
 def chain(length, vsize=100):
     """A CPFP chain: tx 0 at the top, each one spending the one before."""

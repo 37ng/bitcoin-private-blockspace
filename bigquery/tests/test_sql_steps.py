@@ -127,7 +127,7 @@ def test_full_block_denominator_requires_a_floor(name):
     counting it below the line only deflates the share.
     """
     text = source(name)
-    assert "${countable_space}" in text
+    assert "${low_fee_denominator}" in text
     # ...and no bare `b.is_full` slipped back in beside it.
     assert "b.is_full" not in text
     assert config.FULL_AND_PRICED in bqio.render(name)
@@ -137,8 +137,8 @@ def test_full_block_denominator_requires_a_floor(name):
 def test_full_block_denominator_excludes_nonrelayable(name):
     """Non-relayable space must stay out of every denominator too.
 
-    Step 06b never flags a non-relayable transaction, so those vbytes can only
-    ever sit below the line. Leaving them there measures flagged relayable
+    Step 06b never marks a non-relayable transaction low-fee, so those vbytes
+    can only ever sit below the line. Leaving them there measures low-fee relayable
     space against space that was never in the auction, and quietly deflates
     the share by however much non-relayable traffic the month happened to
     carry.

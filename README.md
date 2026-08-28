@@ -28,7 +28,7 @@ Then validate and write the outputs:
 
 ```bash
 uv run python sanity_check.py             # pool shares vs public hashrate data
-uv run python validate_against_mempool.py # flagged txs vs mempool.space audits
+uv run python validate_against_mempool.py # low-fee txs vs mempool.space audits
 uv run python export_results.py           # CSVs, headline.json, summary.md
 ```
 

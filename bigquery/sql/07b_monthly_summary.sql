@@ -2,7 +2,7 @@
 --
 -- `private_vbytes_share` is the headline: the fraction of block space in full
 -- blocks that changed hands below the public price. The denominator is
--- `config.COUNTABLE_SPACE`: vbytes in full, priced blocks only, since only
+-- `config.LOW_FEE_DENOMINATOR`: vbytes in full, priced blocks only, since only
 -- there is a discount meaningful, and relayable only, to match a numerator
 -- that can never contain non-relayable space. Non-relayable traffic is
 -- reported on its own rows below, against `all_vbytes`.
@@ -16,7 +16,7 @@ WITH full_block_totals AS (
     COUNT(*) AS full_block_txs
   FROM `${dst}.txs` AS t
   JOIN `${dst}.blocks` AS b USING (block_number)
-  WHERE ${countable_space} AND NOT t.is_coinbase
+  WHERE ${low_fee_denominator} AND NOT t.is_coinbase
   GROUP BY t.block_month
 ),
 all_totals AS (
@@ -25,7 +25,7 @@ all_totals AS (
   WHERE NOT is_coinbase
   GROUP BY block_month
 ),
-flagged AS (
+low_fee AS (
   SELECT
     block_month,
     COUNTIF(low_fee_30) AS txs_30,
@@ -40,7 +40,7 @@ flagged AS (
     SUM(IF(low_fee_30, upper_band_sats, 0)) AS upper_band_sats_30,
     SUM(IF(low_fee_70, lower_band_sats, 0)) AS lower_band_sats_70,
     SUM(IF(low_fee_70, upper_band_sats, 0)) AS upper_band_sats_70
-  FROM `${dst}.flagged_txs`
+  FROM `${dst}.low_fee_txs`
   GROUP BY block_month
 ),
 nonrelayable AS (
@@ -48,19 +48,19 @@ nonrelayable AS (
     block_month,
     COUNTIF(is_nonrelayable) AS nonrelayable_txs,
     SUM(IF(is_nonrelayable, virtual_size, 0)) AS nonrelayable_vbytes,
-    COUNTIF(flag_nonstandard_script) AS nonstandard_script_txs,
-    COUNTIF(flag_bare_multisig) AS bare_multisig_txs,
-    COUNTIF(flag_op_return) AS op_return_txs,
-    COUNTIF(flag_multi_op_return) AS multi_op_return_txs,
-    COUNTIF(flag_dust) AS dust_txs,
-    COUNTIF(flag_version) AS version_txs,
-    COUNTIF(flag_truc) AS truc_txs,
-    COUNTIF(flag_oversized) AS oversized_txs,
-    COUNTIF(flag_undersized) AS undersized_txs,
-    COUNTIF(flag_scriptsig_size) AS scriptsig_size_txs,
-    COUNTIF(flag_scriptsig_nonpush) AS scriptsig_nonpush_txs,
-    COUNTIF(flag_ancestor_limit) AS ancestor_limit_txs,
-    COUNTIF(flag_sub_minrelay) AS sub_minrelay_txs
+    COUNTIF(nonrelay_nonstandard_script) AS nonstandard_script_txs,
+    COUNTIF(nonrelay_bare_multisig) AS bare_multisig_txs,
+    COUNTIF(nonrelay_op_return) AS op_return_txs,
+    COUNTIF(nonrelay_multi_op_return) AS multi_op_return_txs,
+    COUNTIF(nonrelay_dust) AS dust_txs,
+    COUNTIF(nonrelay_version) AS version_txs,
+    COUNTIF(nonrelay_truc) AS truc_txs,
+    COUNTIF(nonrelay_oversized) AS oversized_txs,
+    COUNTIF(nonrelay_undersized) AS undersized_txs,
+    COUNTIF(nonrelay_scriptsig_size) AS scriptsig_size_txs,
+    COUNTIF(nonrelay_scriptsig_nonpush) AS scriptsig_nonpush_txs,
+    COUNTIF(nonrelay_ancestor_limit) AS ancestor_limit_txs,
+    COUNTIF(nonrelay_sub_minrelay) AS sub_minrelay_txs
   FROM `${dst}.txs`
   WHERE NOT is_coinbase
   GROUP BY block_month
@@ -70,12 +70,12 @@ SELECT
   a.all_txs,
   a.all_vbytes,
   COALESCE(fb.full_block_vbytes, 0) AS full_block_vbytes,
-  COALESCE(f.txs_30, 0) AS flagged_txs_30,
-  COALESCE(f.txs_50, 0) AS flagged_txs_50,
-  COALESCE(f.txs_70, 0) AS flagged_txs_70,
-  COALESCE(f.vbytes_30, 0) AS flagged_vbytes_30,
-  COALESCE(f.vbytes_50, 0) AS flagged_vbytes_50,
-  COALESCE(f.vbytes_70, 0) AS flagged_vbytes_70,
+  COALESCE(f.txs_30, 0) AS low_fee_txs_30,
+  COALESCE(f.txs_50, 0) AS low_fee_txs_50,
+  COALESCE(f.txs_70, 0) AS low_fee_txs_70,
+  COALESCE(f.vbytes_30, 0) AS low_fee_vbytes_30,
+  COALESCE(f.vbytes_50, 0) AS low_fee_vbytes_50,
+  COALESCE(f.vbytes_70, 0) AS low_fee_vbytes_70,
   SAFE_DIVIDE(f.vbytes_30, fb.full_block_vbytes) AS private_vbytes_share_30,
   SAFE_DIVIDE(f.vbytes_50, fb.full_block_vbytes) AS private_vbytes_share_50,
   SAFE_DIVIDE(f.vbytes_70, fb.full_block_vbytes) AS private_vbytes_share_70,
@@ -103,6 +103,6 @@ SELECT
   n.sub_minrelay_txs
 FROM all_totals AS a
 LEFT JOIN full_block_totals AS fb USING (block_month)
-LEFT JOIN flagged AS f USING (block_month)
+LEFT JOIN low_fee AS f USING (block_month)
 LEFT JOIN nonrelayable AS n USING (block_month)
 ORDER BY a.block_month

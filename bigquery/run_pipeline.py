@@ -27,16 +27,16 @@ import export_results
 STEPS = [
     ("01_tx_base", "sql", "read the public dataset once"),
     ("02_blocks", "sql", "attribute every block to a pool"),
-    ("03_txs", "sql", "in-block CPFP edges and relay flags"),
+    ("03_txs", "sql", "in-block CPFP edges and non-relayable reasons"),
     ("04a_in_package", "sql", "working set for the union-find pass"),
     ("04b_union_find", "python", "package fee rates, in Python"),
     ("04c_update_effective_fee", "sql", "write package rates onto txs"),
-    ("04d_update_ancestor_limit", "sql", "the ancestor-limit relay flag"),
+    ("04d_update_ancestor_limit", "sql", "the ancestor-limit non-relayable reason"),
     ("05_block_floor", "sql", "p05 effective rate per block"),
     ("05b_update_block_floor", "sql", "neighbour median floor onto blocks"),
     ("06a_block_fullness", "sql", "which blocks were full"),
-    ("06b_flag_low_fee", "sql", "low-fee flag at 0.3 / 0.5 / 0.7"),
-    ("07_revenue_bands", "sql", "flagged transactions and their bands"),
+    ("06b_low_fee", "sql", "low-fee test at 0.3 / 0.5 / 0.7"),
+    ("07_revenue_bands", "sql", "low-fee transactions and their bands"),
     ("07b_monthly_summary", "sql", "the monthly answer"),
     ("07c_pool_summary", "sql", "the same answer per pool"),
     ("08_sensitivity", "sql", "the 3x3 threshold grid"),
@@ -56,16 +56,16 @@ CHECKS = [
      "SELECT COUNT(*) FROM `${dst}.blocks` b "
      "LEFT JOIN `${dst}.block_percentiles` p USING (block_number) "
      "WHERE b.floor_fee_rate IS NOT NULL AND p.block_number IS NULL", 0),
-    ("flagged transactions that are non-relayable",
+    ("low-fee transactions that are non-relayable",
      "SELECT COUNT(*) FROM `${dst}.txs` "
      "WHERE low_fee_70 AND is_nonrelayable", 0),
-    ("transactions whose is_nonrelayable disagrees with its flags",
+    ("transactions whose is_nonrelayable disagrees with its reasons",
      "SELECT COUNT(*) FROM `${dst}.txs` WHERE is_nonrelayable != ("
-     "  flag_nonstandard_script OR flag_bare_multisig OR flag_op_return"
-     "  OR flag_multi_op_return OR flag_dust OR flag_version OR flag_truc"
-     "  OR flag_oversized OR flag_undersized OR flag_scriptsig_size"
-     "  OR flag_scriptsig_nonpush OR flag_sub_minrelay"
-     "  OR flag_ancestor_limit)", 0),
+     "  nonrelay_nonstandard_script OR nonrelay_bare_multisig OR nonrelay_op_return"
+     "  OR nonrelay_multi_op_return OR nonrelay_dust OR nonrelay_version OR nonrelay_truc"
+     "  OR nonrelay_oversized OR nonrelay_undersized OR nonrelay_scriptsig_size"
+     "  OR nonrelay_scriptsig_nonpush OR nonrelay_sub_minrelay"
+     "  OR nonrelay_ancestor_limit)", 0),
     ("non-relayable coinbase transactions",
      "SELECT COUNT(*) FROM `${dst}.txs` "
      "WHERE is_coinbase AND is_nonrelayable", 0),
@@ -128,20 +128,20 @@ def run_checks():
 def headline():
     sql = bqio.render_string("""
       SELECT
-        SUM(flagged_vbytes_50) AS vbytes_50,
-        SAFE_DIVIDE(SUM(flagged_vbytes_50), SUM(full_block_vbytes)) AS share_50,
+        SUM(low_fee_vbytes_50) AS vbytes_50,
+        SAFE_DIVIDE(SUM(low_fee_vbytes_50), SUM(full_block_vbytes)) AS share_50,
         SUM(lower_band_btc_50) AS lower_btc,
         SUM(upper_band_btc_50) AS upper_btc,
-        SUM(flagged_vbytes_30) AS vbytes_30,
-        SUM(flagged_vbytes_70) AS vbytes_70
+        SUM(low_fee_vbytes_30) AS vbytes_30,
+        SUM(low_fee_vbytes_70) AS vbytes_70
       FROM `${dst}.monthly_summary`
     """)
     row = bqio.rows(sql)[0]
     print("\nheadline, sensitivity 0.5")
     if not row["vbytes_50"]:
-        print("  no flagged space in this window")
+        print("  no low-fee space in this window")
         return
-    print(f"  flagged space      {row['vbytes_50'] / 1e9:,.2f} GvB "
+    print(f"  low-fee space      {row['vbytes_50'] / 1e9:,.2f} GvB "
           f"({(row['share_50'] or 0) * 100:.2f}% of space in full blocks)")
     print(f"  range across 0.3-0.7  {row['vbytes_30'] / 1e9:,.2f} - "
           f"{row['vbytes_70'] / 1e9:,.2f} GvB")
