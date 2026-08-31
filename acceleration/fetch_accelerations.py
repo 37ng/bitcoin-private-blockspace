@@ -1,6 +1,5 @@
 import argparse
 import calendar
-import json
 import os
 import random
 import sys
@@ -14,15 +13,22 @@ import config
 
 API = "https://mempool.space/api/v1/services/accelerator/accelerations/history"
 
-# The endpoint silently caps pageLength at 50; asking for more wastes nothing
-# but returns no more rows.
+# The endpoint caps pageLength at 50.
 MAX_PAGE_LENGTH = 50
 
-# Seconds between requests: 3 a minute. The API publishes no rate limit, so
-# the pace is a choice rather than a measurement, and at 1s it pushed back
-# constantly -- the backoff, not the sleep, ended up setting the real rate.
-# Asking slowly costs a top-up nothing: it reads a page or two either way.
+# Seconds between requests. The API publishes no rate limit, so the pace is a
+# choice: at 1s it pushed back constantly and the backoff, not the sleep, set
+# the real rate.
 DEFAULT_SLEEP = 20.0
+
+# Days of `added` time per request window. A window is walked page by page, so
+# a wide one means deep page numbers; a narrow one means more empty requests.
+DEFAULT_WINDOW_DAYS = 30
+
+# A default run restarts this far behind the newest record already held. A
+# record that was still in flight during the last run was skipped, and this is
+# the second chance to read it once it settled.
+LOOKBACK_DAYS = 3
 
 HEADERS = {"User-Agent": "bitcoin-private-blockspace/1.0 (research)"}
 
@@ -31,17 +37,11 @@ HEADERS = {"User-Agent": "bitcoin-private-blockspace/1.0 (research)"}
 TERMINAL = ("completed", "failed")
 
 
-def cache_dir():
-    path = os.path.join(config.CACHE_DIR, "accelerations")
-    os.makedirs(path, exist_ok=True)
-    return path
-
-
-def get_json(url, params=None, sleep=DEFAULT_SLEEP, attempts=8):
+def get_json(params, sleep=DEFAULT_SLEEP, attempts=8):
     delay = sleep
     for attempt in range(1, attempts + 1):
         try:
-            response = requests.get(url, params=params, headers=HEADERS,
+            response = requests.get(API, params=params, headers=HEADERS,
                                     timeout=30)
         except requests.exceptions.RequestException as exc:
             delay = min(max(delay * 3, 5), 120)
@@ -50,8 +50,7 @@ def get_json(url, params=None, sleep=DEFAULT_SLEEP, attempts=8):
             time.sleep(delay)
             continue
         if response.status_code == 200:
-            # Jitter keeps a long run from settling into a fixed cadence that
-            # looks like a scripted hammer.
+            # Jitter keeps a long run off a fixed cadence.
             time.sleep(sleep * random.uniform(0.8, 1.4))
             return response, response.json()
         if response.status_code in (429, 500, 502, 503, 504):
@@ -61,7 +60,7 @@ def get_json(url, params=None, sleep=DEFAULT_SLEEP, attempts=8):
             time.sleep(delay)
             continue
         response.raise_for_status()
-    raise RuntimeError(f"{url}: gave up after {attempts} attempts")
+    raise RuntimeError(f"{API}: gave up after {attempts} attempts")
 
 
 # --- small pure helpers --------------------------------------------------
@@ -91,17 +90,10 @@ def is_settled(record):
     return (record.get("status") or "").startswith(TERMINAL)
 
 
-def page_is_old(batch, bound):
-    return all(r.get("added") is not None and r["added"] <= bound
-               for r in batch)
-
-
-def collect(batch, records, seen, kept_keys=None):
+def collect(batch, records, seen):
     kept = 0
     for record in batch:
         key = key_of(record)
-        if kept_keys is not None:
-            kept_keys.add(key)
         if not is_settled(record) or key in seen:
             continue
         seen.add(key)
@@ -110,175 +102,39 @@ def collect(batch, records, seen, kept_keys=None):
     return kept
 
 
-# --- walking the list ----------------------------------------------------
-
-def history_size(page_length, sleep):
-    response, _ = get_json(API, {"page": 1, "pageLength": page_length},
-                           sleep=sleep)
-    total = int(response.headers.get("x-total-count", 0))
-    pages = (total + page_length - 1) // page_length if total else 0
-    if total:
-        print(f"history reports {total} records "
-              f"({pages} pages of {page_length})")
-    return total, pages
+def windows(start, end, days):
+    # `from` and `to` are both inclusive, so a window ends one second before
+    # the next one starts and no record is read twice.
+    span = days * 86400
+    while start <= end:
+        stop = min(start + span - 1, end)
+        yield start, stop
+        start = stop + 1
 
 
-def seek_page(bound, page_length, pages, sleep):
-    lo, hi = 1, max(pages, 1)
-    while lo < hi:
-        mid = (lo + hi) // 2
-        _, batch = get_json(API, {"page": mid, "pageLength": page_length},
-                            sleep=sleep)
-        newest = batch[0].get("added") if batch else None
-        print(f"    seek page {mid:>4d}  newest "
-              f"{utc(newest) if newest else '-'}")
-        if newest is not None and newest > bound:
-            lo = mid + 1
-        else:
-            hi = mid
-    return lo
+# --- reading one window --------------------------------------------------
 
-
-def fetch_full(sleep, page_length, max_pages, refresh):
-    page_length = min(page_length, MAX_PAGE_LENGTH)
-    directory = cache_dir()
+def fetch_window(start, end, sleep, page_length):
     records, seen = [], set()
-    page, read = 1, 0
-
-    total, pages = history_size(page_length, sleep)
-    if total:
-        print(f"estimated wall time at {sleep}s per request: "
-              f"{pages * sleep / 60:.0f} min")
+    page, read, total = 1, 0, None
 
     while True:
-        if max_pages and page > max_pages:
-            print(f"stopping at --max-pages {max_pages}")
-            break
-
-        path = os.path.join(directory, f"page_{page:05d}.json")
-        if os.path.exists(path) and not refresh:
-            with open(path) as fh:
-                batch = json.load(fh)
-        else:
-            _, batch = get_json(API, {"page": page, "pageLength": page_length},
-                                sleep=sleep)
-            with open(path, "w") as fh:
-                json.dump(batch, fh)
-
+        response, batch = get_json(
+            {"from": start, "to": end, "page": page,
+             "pageLength": page_length}, sleep=sleep)
+        if total is None and response is not None:
+            total = int(response.headers.get("x-total-count", 0)) or None
         if not batch:
-            print(f"page {page}: empty, history exhausted")
             break
         read += len(batch)
         collect(batch, records, seen)
-
-        if page % 20 == 0 or page == 1:
-            oldest = min((r["added"] for r in batch if r.get("added")),
-                         default=None)
-            print(f"    page {page:>4d}  {len(records):>6d} settled  "
-                  f"oldest {utc(oldest) if oldest else 'pending'}")
-
         if len(batch) < page_length:
-            print(f"page {page}: short page, history exhausted")
+            break
+        if total and read >= total:
             break
         page += 1
 
-    print(f"read {page} pages, {read} records, kept {len(records)} settled")
-    return records
-
-
-def fetch_top_up(sleep, page_length, have, overlap):
-    page_length = min(page_length, MAX_PAGE_LENGTH)
-    records, seen = [], set()
-    page, read = 1, 0
-    touched, pages_since_touch = False, 0
-
-    while True:
-        _, batch = get_json(API, {"page": page, "pageLength": page_length},
-                            sleep=sleep)
-        if not batch:
-            print(f"page {page}: empty, history exhausted")
-            break
-        read += len(batch)
-
-        keys = set()
-        collect(batch, records, seen, keys)
-        if keys & have:
-            if not touched:
-                print(f"page {page}: reached records already held")
-            touched = True
-
-        if touched:
-            pages_since_touch += 1
-            if pages_since_touch > overlap:
-                break
-        if len(batch) < page_length:
-            print(f"page {page}: short page, history exhausted")
-            break
-        page += 1
-
-    if not touched:
-        raise SystemExit(
-            f"read {page} pages without reaching any record already held.\n"
-            f"Stopping rather than loading them: they would sit above a gap "
-            f"and the run would no longer be contiguous.\n"
-            f"Run --full to rebuild, or raise --overlap if this was a very "
-            f"long absence.")
-    print(f"read {page} pages, {read} records, kept {len(records)} settled")
-    return records
-
-
-def fetch_back_to(sleep, page_length, oldest_held, target, overlap, max_pages):
-    page_length = min(page_length, MAX_PAGE_LENGTH)
-    _, pages = history_size(page_length, sleep)
-
-    page = 1
-    if pages:
-        page = max(1, seek_page(oldest_held, page_length, pages, sleep)
-                   - overlap)
-        remaining = pages - page + 1
-        print(f"entering at page {page} of {pages}: at most {remaining} pages "
-              f"to walk, {remaining * sleep / 60:.0f} min at {sleep}s each")
-
-    records, seen = [], set()
-    read, old_pages, walked = 0, 0, 0
-
-    while True:
-        if max_pages and walked >= max_pages:
-            print(f"stopping at --max-pages {max_pages}")
-            break
-
-        _, batch = get_json(API, {"page": page, "pageLength": page_length},
-                            sleep=sleep)
-        walked += 1
-        if not batch:
-            print(f"page {page}: empty, history exhausted")
-            break
-        read += len(batch)
-        collect(batch, records, seen)
-
-        if walked == 1 or walked % 20 == 0:
-            oldest = min((r["added"] for r in batch if r.get("added")),
-                         default=None)
-            print(f"    page {page:>4d}  {len(records):>6d} settled  "
-                  f"oldest {utc(oldest) if oldest else 'pending'}")
-
-        if page_is_old(batch, target):
-            old_pages += 1
-            if old_pages >= overlap:
-                print(f"page {page}: {overlap} consecutive pages at or before "
-                      f"{utc(target)}, stopping")
-                break
-        else:
-            old_pages = 0
-
-        if len(batch) < page_length:
-            print(f"page {page}: short page, history exhausted")
-            break
-        page += 1
-
-    print(f"walked {walked} pages, read {read} records, "
-          f"kept {len(records)} settled")
-    return records
+    return records, read
 
 
 # --- BigQuery ------------------------------------------------------------
@@ -289,6 +145,7 @@ def accel_table():
 
 def table_missing():
     from google.cloud.exceptions import NotFound
+
     import bqio
     try:
         bqio.client().get_table(accel_table())
@@ -317,8 +174,10 @@ def existing_keys():
             for r in bqio.rows(f"SELECT txid, added FROM `{accel_table()}`")}
 
 
-def unloaded(records, have):
-    return [r for r in records if key_of(r) not in have]
+def drop_table():
+    import bqio
+    bqio.client().delete_table(accel_table(), not_found_ok=True)
+    print(f"dropped {accel_table()}")
 
 
 def normalise(record):
@@ -326,8 +185,9 @@ def normalise(record):
         "txid": record["txid"],
         "status": record.get("status"),
         "canceled": bool(record.get("canceled")),
-        "added": record.get("added"),
-        "last_updated": record.get("lastUpdated"),
+        "added": iso(record["added"]) if record.get("added") else None,
+        "last_updated": iso(record["lastUpdated"])
+        if record.get("lastUpdated") else None,
         "effective_fee": record.get("effectiveFee"),
         "effective_vsize": record.get("effectiveVsize"),
         "fee_delta": record.get("feeDelta"),
@@ -361,104 +221,104 @@ def schema():
     ]
 
 
-def load_to_bigquery(records, append):
+def append(records, have):
     from google.cloud import bigquery as bq
 
     import bqio
-
-    bqio.ensure_dataset(config.ACCEL_DATASET)
-    if append:
-        seen = len(records)
-        records = unloaded(records, existing_keys())
-        print(f"{seen - len(records)} of {seen} records were already loaded")
-        if not records:
-            print("nothing to append")
-            return
-    rows = [normalise(r) for r in records]
-    for row in rows:
-        for field in ("added", "last_updated"):
-            if row[field]:
-                row[field] = iso(row[field])
-
-    disposition = "WRITE_APPEND" if append else "WRITE_TRUNCATE"
+    fresh = [r for r in records if key_of(r) not in have]
+    if not fresh:
+        return 0
     job = bqio.client().load_table_from_json(
-        rows, accel_table(),
+        [normalise(r) for r in fresh], accel_table(),
         job_config=bq.LoadJobConfig(schema=schema(),
-                                    write_disposition=disposition),
+                                    write_disposition="WRITE_APPEND"),
     )
     job.result()
-    verb = "appended" if append else "loaded"
-    print(f"{verb} {len(rows)} rows into {accel_table()}")
+    have.update(key_of(r) for r in fresh)
+    return len(fresh)
+
+
+# --- the run -------------------------------------------------------------
+
+def start_of_run(args, replace):
+    if args.start:
+        return parse_time(args.start)
+    _, newest = (None, None) if replace else run_bounds()
+    if newest is None:
+        print(f"nothing loaded yet -- reading from {config.START_DATE}")
+        return parse_time(config.START_DATE)
+    start = newest - LOOKBACK_DAYS * 86400
+    print(f"the run ends at {utc(newest)} UTC; re-reading from {utc(start)} "
+          f"in case anything settled since")
+    return start
 
 
 def main():
     parser = argparse.ArgumentParser(
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--from", dest="start", metavar="YYYY-MM-DD",
+                        help="read from this time (default: just behind the "
+                             "newest record already held)")
+    parser.add_argument("--to", dest="end", metavar="YYYY-MM-DD",
+                        help="read up to this time (default: now)")
+    parser.add_argument("--window", type=int, default=DEFAULT_WINDOW_DAYS,
+                        metavar="DAYS",
+                        help=f"days per request window "
+                             f"(default {DEFAULT_WINDOW_DAYS})")
     parser.add_argument("--sleep", type=float, default=DEFAULT_SLEEP,
                         help=f"seconds between requests "
-                             f"(default {DEFAULT_SLEEP:.0f}, about 3 a minute)")
+                             f"(default {DEFAULT_SLEEP:.0f})")
     parser.add_argument("--page-length", type=int, default=MAX_PAGE_LENGTH)
-    parser.add_argument("--max-pages", type=int, default=0,
-                        help="stop early, for a smoke test")
-    parser.add_argument("--refresh", action="store_true",
-                        help="ignore cached pages and refetch")
     parser.add_argument("--no-load", action="store_true",
-                        help="skip the BigQuery load")
-    parser.add_argument("--full", action="store_true",
-                        help="crawl the whole history and replace the table")
-    parser.add_argument("--back-to", metavar="YYYY-MM-DD",
-                        help="extend the run further back, down to this date")
-    parser.add_argument("--overlap", type=int, default=2, metavar="N",
-                        help="pages to read past the join (default 2)")
+                        help="fetch and report, but write nothing")
+    parser.add_argument("--replace", action="store_true",
+                        help="drop the table first and rebuild it")
     parser.add_argument("--yes", action="store_true",
-                        help="do not ask before replacing the table")
+                        help="do not ask before dropping the table")
     args = parser.parse_args()
 
-    if args.full and args.back_to:
-        raise SystemExit("--full already reads everything; drop --back-to")
+    page_length = min(args.page_length, MAX_PAGE_LENGTH)
+    end = parse_time(args.end) if args.end else int(time.time())
+    start = start_of_run(args, args.replace)
+    if start > end:
+        raise SystemExit(f"{utc(start)} is after {utc(end)}; nothing to read")
 
-    target = parse_time(args.back_to) if args.back_to else None
-    oldest, newest = (None, None) if args.full else run_bounds()
+    plan = list(windows(start, end, args.window))
+    print(f"reading {utc(start)} to {utc(end)} UTC in {len(plan)} windows of "
+          f"{args.window} days, at least {len(plan) * args.sleep / 60:.0f} min "
+          f"at {args.sleep:.0f}s a request")
 
-    if oldest is None and not args.full:
-        print("nothing loaded yet -- crawling the whole history")
-        args.full = True
-
-    if args.full:
-        if args.max_pages and not args.yes and not args.no_load:
-            print(f"--full replaces the table, and --max-pages {args.max_pages} "
-                  f"means it would be replaced with a fragment.")
-            import bqio
-            if not bqio.confirm("Continue?"):
-                return 1
-        records = fetch_full(args.sleep, args.page_length, args.max_pages,
-                             args.refresh)
-        append = False
-    elif target is not None:
-        if target >= oldest:
-            print(f"already hold records back to {utc(oldest)} UTC; "
-                  f"--back-to {args.back_to} asks for nothing new")
-            return 0
-        print(f"extending the run from {utc(oldest)} back to {utc(target)} UTC")
-        records = fetch_back_to(args.sleep, args.page_length, oldest, target,
-                                args.overlap, args.max_pages)
-        append = True
-    else:
-        print(f"topping up; the run currently ends at {utc(newest)} UTC")
-        records = fetch_top_up(args.sleep, args.page_length, existing_keys(),
-                               args.overlap)
-        append = True
-
-    if not records:
-        print("no settled records fetched")
-        return 0 if append else 1
-
+    have = set()
     if not args.no_load:
-        load_to_bigquery(records, append=append)
-        lo, hi = run_bounds()
-        if lo is not None:
-            print(f"the run now spans {utc(lo)} to {utc(hi)} UTC")
+        import bqio
+        if args.replace:
+            if not args.yes and not bqio.confirm(
+                    f"drop and rebuild {accel_table()}?"):
+                return 1
+            drop_table()
+        bqio.ensure_dataset(config.ACCEL_DATASET)
+        have = existing_keys()
+
+    read = kept = loaded = 0
+    for window_start, window_end in plan:
+        records, in_window = fetch_window(window_start, window_end, args.sleep,
+                                          page_length)
+        read += in_window
+        kept += len(records)
+        new = 0
+        if records and not args.no_load:
+            new = append(records, have)
+            loaded += new
+        print(f"    {utc(window_start)}..{utc(window_end)}  "
+              f"{in_window:>5d} read  {len(records):>5d} settled  "
+              f"{new:>5d} new")
+
+    print(f"read {read} records, {kept} settled, loaded {loaded}")
+    if not args.no_load:
+        oldest, newest = run_bounds()
+        if oldest is not None:
+            print(f"the run now spans {utc(oldest)} to {utc(newest)} UTC")
     return 0
 
 
