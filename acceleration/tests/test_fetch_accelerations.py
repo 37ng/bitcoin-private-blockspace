@@ -29,12 +29,11 @@ def test_an_unknown_status_is_treated_as_in_flight():
     assert not fa.is_settled({"txid": "a", "added": 100})
 
 
-def test_collect_drops_in_flight_records_but_still_reports_their_keys():
-    records, seen, keys = [], set(), set()
+def test_collect_drops_in_flight_records():
+    records, seen = [], set()
     batch = [record("a", 100), record("b", 90, "accelerating")]
-    assert fa.collect(batch, records, seen, keys) == 1
+    assert fa.collect(batch, records, seen) == 1
     assert [r["txid"] for r in records] == ["a"]
-    assert keys == {("a", 100), ("b", 90)}
 
 
 # --- the identity key ----------------------------------------------------
@@ -68,108 +67,79 @@ def test_parse_time_rejects_nonsense():
         fa.parse_time("last tuesday")
 
 
-def test_a_page_of_older_records_stops_a_downward_walk():
-    assert fa.page_is_old([record("a", 100), record("b", 90)], 100)
+# --- the windows ---------------------------------------------------------
+
+def test_the_windows_cover_the_whole_range():
+    got = list(fa.windows(0, 10 * 86400, 3))
+    assert got[0][0] == 0
+    assert got[-1][1] == 10 * 86400
 
 
-def test_one_newer_record_keeps_a_downward_walk_going():
-    assert not fa.page_is_old([record("a", 101), record("b", 90)], 100)
+def test_the_windows_never_overlap():
+    # `from` and `to` are both inclusive, so a shared second reads a record
+    # twice.
+    got = list(fa.windows(1_000_000, 1_000_000 + 30 * 86400, 7))
+    for (_, end), (start, _) in zip(got, got[1:]):
+        assert start == end + 1
 
 
-def test_a_record_without_a_time_counts_as_new():
-    assert not fa.page_is_old([record("a", None)], 100)
+def test_a_range_shorter_than_one_window_is_one_window():
+    assert list(fa.windows(100, 200, 30)) == [(100, 200)]
 
 
-# --- the seek ------------------------------------------------------------
+def test_a_range_of_one_second_is_still_read():
+    assert list(fa.windows(100, 100, 30)) == [(100, 100)]
 
-def fake_history(monkeypatch, added, page_length=50, status="completed"):
+
+# --- walking one window --------------------------------------------------
+
+class Response:
+    def __init__(self, total):
+        self.headers = {"x-total-count": str(total)}
+
+
+def fake_api(monkeypatch, added, page_length=50, status="completed"):
     added = sorted(added, reverse=True)
     pages = [added[i:i + page_length]
              for i in range(0, len(added), page_length)]
     calls = []
 
-    def get_json(url, params=None, **kwargs):
+    def get_json(params, **kwargs):
         page = params["page"]
         calls.append(page)
         batch = pages[page - 1] if 1 <= page <= len(pages) else []
-        return None, [record(f"tx{t}", t, status) for t in batch]
+        return (Response(len(added)),
+                [record(f"tx{t}", t, status) for t in batch])
 
     monkeypatch.setattr(fa, "get_json", get_json)
-    monkeypatch.setattr(fa, "history_size",
-                        lambda *a, **k: (len(added), len(pages)))
-    return len(pages), calls
+    return calls
 
 
-def test_the_seek_lands_on_the_page_holding_the_bound(monkeypatch):
-    times = [1_000_000 - 60 * i for i in range(30_000)]
-    pages, calls = fake_history(monkeypatch, times)
-    bound = 1_000_000 - 60 * 20_000        # page 401 opens here
-    assert fa.seek_page(bound, 50, pages, sleep=0) == 401
-    assert len(calls) < 15, "a 600-page list must not cost 600 requests"
+def test_a_window_is_read_to_its_last_page(monkeypatch):
+    times = [1_000_000 - 60 * i for i in range(120)]
+    fake_api(monkeypatch, times)
+    records, read = fa.fetch_window(0, 1_000_000, sleep=0, page_length=50)
+    assert read == 120
+    assert {r["added"] for r in records} == set(times)
 
 
-def test_a_bound_above_the_newest_record_enters_at_page_one(monkeypatch):
-    pages, _ = fake_history(monkeypatch, [1_000, 900, 800])
-    assert fa.seek_page(5_000, 50, pages, sleep=0) == 1
+def test_an_empty_window_costs_one_request(monkeypatch):
+    calls = fake_api(monkeypatch, [])
+    records, read = fa.fetch_window(0, 1_000_000, sleep=0, page_length=50)
+    assert (records, read) == ([], 0)
+    assert calls == [1]
 
 
-def test_a_bound_below_the_oldest_record_enters_at_the_last_page(monkeypatch):
-    pages, _ = fake_history(monkeypatch, [1_000_000 - 60 * i
-                                          for i in range(200)])
-    assert fa.seek_page(0, 50, pages, sleep=0) == pages
+def test_a_full_last_page_does_not_cost_another_request(monkeypatch):
+    # 100 records fill two pages exactly; the count says to stop there.
+    times = [1_000_000 - 60 * i for i in range(100)]
+    calls = fake_api(monkeypatch, times)
+    fa.fetch_window(0, 1_000_000, sleep=0, page_length=50)
+    assert calls == [1, 2]
 
 
-# --- the top-up must join the run ----------------------------------------
-
-def test_the_top_up_stops_once_it_touches_records_already_held(monkeypatch):
-    times = [1_000_000 - 60 * i for i in range(5_000)]
-    fake_history(monkeypatch, times)
-    have = {(f"tx{t}", t) for t in times[300:]}     # everything below page 7
-    got = fa.fetch_top_up(sleep=0, page_length=50, have=have, overlap=2)
-    # It read past the join, so it holds every record newer than the run.
-    assert set(times[:300]) <= {r["added"] for r in got}
-
-
-def test_the_top_up_refuses_to_stop_short_of_the_run(monkeypatch):
-    times = [1_000_000 - 60 * i for i in range(300)]
-    fake_history(monkeypatch, times)
-    with pytest.raises(SystemExit, match="contiguous"):
-        fa.fetch_top_up(sleep=0, page_length=50,
-                        have={("nothing-here", 1)}, overlap=2)
-
-
-def test_the_top_up_reads_past_the_join_by_the_overlap(monkeypatch):
-    times = [1_000_000 - 60 * i for i in range(5_000)]
-    _, calls = fake_history(monkeypatch, times)
-    have = {(f"tx{t}", t) for t in times[100:]}     # join lands on page 3
-    fa.fetch_top_up(sleep=0, page_length=50, have=have, overlap=2)
-    assert max(calls) >= 5, "must read overlap pages beyond the first touch"
-
-
-# --- the backfill must join the run --------------------------------------
-
-def test_the_backfill_extends_the_run_downwards_without_a_gap(monkeypatch):
-    times = [1_000_000 - 60 * i for i in range(5_000)]
-    fake_history(monkeypatch, times)
-    oldest_held = times[2_000]
-    target = times[3_500]
-    got = fa.fetch_back_to(sleep=0, page_length=50, oldest_held=oldest_held,
-                           target=target, overlap=2, max_pages=0)
-    added = {r["added"] for r in got}
-    assert set(times[2_000:3_501]) <= added, "left a hole above the target"
-
-
-def test_the_backfill_starts_above_the_anchor_so_the_join_overlaps(monkeypatch):
-    times = [1_000_000 - 60 * i for i in range(5_000)]
-    fake_history(monkeypatch, times)
-    got = fa.fetch_back_to(sleep=0, page_length=50, oldest_held=times[2_000],
-                           target=times[2_500], overlap=2, max_pages=0)
-    assert max(r["added"] for r in got) > times[2_000], "no overlap with the run"
-
-
-def test_a_backfill_stores_no_in_flight_records(monkeypatch):
-    times = [1_000_000 - 60 * i for i in range(500)]
-    fake_history(monkeypatch, times, status="accelerating")
-    got = fa.fetch_back_to(sleep=0, page_length=50, oldest_held=times[100],
-                           target=times[300], overlap=2, max_pages=0)
-    assert got == []
+def test_a_window_stores_no_in_flight_records(monkeypatch):
+    times = [1_000_000 - 60 * i for i in range(60)]
+    fake_api(monkeypatch, times, status="accelerating")
+    records, read = fa.fetch_window(0, 1_000_000, sleep=0, page_length=50)
+    assert (records, read) == ([], 60)
