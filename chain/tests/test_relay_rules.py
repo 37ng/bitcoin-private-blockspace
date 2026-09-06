@@ -5,6 +5,8 @@ import pytest
 import bqio
 import config
 
+SQL_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "sql")
+
 FIXTURES_ENABLED = os.environ.get("BQ_FIXTURES") == "1"
 
 requires_bigquery = pytest.mark.skipif(
@@ -55,7 +57,7 @@ DUST = {
 # --- lifting the step's own SQL -------------------------------------------
 
 def _fragment(alias):
-    sql = bqio.render("01_tx_base.sql")
+    sql = bqio.render(os.path.join(SQL_DIR, "01_tx_base.sql"))
     end = f"\n    ) AS {alias}"
     assert end in sql, f"01_tx_base.sql no longer builds a `{alias}` struct"
     head = sql.split(end)[0]
@@ -213,7 +215,7 @@ def _tx_base_row(overrides):
 
 def reasons(*rows):
     fixture = "\n  UNION ALL ".join(_tx_base_row(r) for r in rows)
-    sql = bqio.render("03_txs.sql")
+    sql = bqio.render(os.path.join(SQL_DIR, "03_txs.sql"))
     body = sql[sql.index("\nAS\n") + 4:]
     body = body.replace(f"`{config.dst()}.tx_base`", f"(\n  {fixture}\n)")
     job, result = bqio.run(f"SELECT * FROM (\n{body}\n)", verbose=False)

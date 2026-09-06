@@ -1,18 +1,18 @@
 import json
 import os
 
-_JSON_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+JSON_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                           "pools_known.json")
 
 
-MISSING = (f"{os.path.basename(_JSON_PATH)} is missing or empty. "
+MISSING = (f"{os.path.basename(JSON_PATH)} is missing or empty. "
            "Run `python refresh_pools.py` to download the pool list.")
 
 
 def load_pools():
-    if not os.path.exists(_JSON_PATH):
+    if not os.path.exists(JSON_PATH):
         raise RuntimeError(MISSING)
-    with open(_JSON_PATH) as fh:
+    with open(JSON_PATH) as fh:
         data = json.load(fh)
     pools = [(name, entry.get("tags") or [], entry.get("addresses") or [])
              for name, entry in sorted(data.items())
@@ -23,9 +23,9 @@ def load_pools():
 
 
 def load_pool_ids():
-    if not os.path.exists(_JSON_PATH):
+    if not os.path.exists(JSON_PATH):
         return {}
-    with open(_JSON_PATH) as fh:
+    with open(JSON_PATH) as fh:
         data = json.load(fh)
     ids = {}
     for name, entry in data.items():
