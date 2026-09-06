@@ -12,6 +12,7 @@ import export_results
 # name, kind, what it does
 STEPS = [
     ("01_tx_base", "sql", "read the public dataset once"),
+    ("01a_monthly_fee", "sql", "total transaction fees per month"),
     ("02_blocks", "sql", "attribute every block to a pool"),
     ("03_txs", "sql", "in-block CPFP edges and non-relayable reasons"),
     ("04a_in_package", "sql", "working set for the union-find pass"),
