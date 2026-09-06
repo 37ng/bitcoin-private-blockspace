@@ -16,4 +16,4 @@ dependencies = [
 dev = ["pytest>=8.0.0"]
 
 [tool.pytest.ini_options]
-testpaths = ["raw/tests", "acceleration/tests"]
+testpaths = ["chain/tests", "broker/tests"]

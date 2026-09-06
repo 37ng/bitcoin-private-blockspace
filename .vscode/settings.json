@@ -1,4 +1,4 @@
 {
-  "python.analysis.extraPaths": ["utils", "raw", "acceleration"],
+  "python.analysis.extraPaths": ["utils", "chain", "broker"],
   "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python"
 }

@@ -3,12 +3,8 @@ import string
 import sys
 import time
 
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "raw"))
-
 import config
 import pools
-
-SQL_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "raw", "sql")
 
 _client = None
 
@@ -32,8 +28,7 @@ def sql_vars(extra=None):
     return v
 
 
-def render(name, extra=None):
-    path = name if os.path.isabs(name) else os.path.join(SQL_DIR, name)
+def render(path, extra=None):
     with open(path) as fh:
         text = fh.read()
     try:
@@ -81,8 +76,9 @@ def run(sql, label="query", verbose=True):
     return job, result
 
 
-def run_file(name, label=None, extra=None, verbose=True):
-    return run(render(name, extra), label or name, verbose=verbose)
+def run_file(path, label=None, extra=None, verbose=True):
+    return run(render(path, extra),
+               label or os.path.basename(path), verbose=verbose)
 
 
 def scalar(sql):

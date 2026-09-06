@@ -82,7 +82,7 @@ def test_an_entry_without_an_id_carries_none():
 def _write_known(tmp_path, monkeypatch, payload):
     path = tmp_path / "pools_known.json"
     path.write_text(json.dumps(rp.convert(payload)))
-    monkeypatch.setattr(pools, "_JSON_PATH", str(path))
+    monkeypatch.setattr(pools, "JSON_PATH", str(path))
 
 
 def test_the_id_map_reads_back_from_the_written_file(tmp_path, monkeypatch):
@@ -91,7 +91,7 @@ def test_the_id_map_reads_back_from_the_written_file(tmp_path, monkeypatch):
 
 
 def test_the_id_map_is_empty_without_a_refreshed_file(tmp_path, monkeypatch):
-    monkeypatch.setattr(pools, "_JSON_PATH", str(tmp_path / "absent.json"))
+    monkeypatch.setattr(pools, "JSON_PATH", str(tmp_path / "absent.json"))
     assert pools.load_pool_ids() == {}
     assert pools.pool_id_struct_sql().startswith("ARRAY<STRUCT<")
 
@@ -122,7 +122,7 @@ def test_the_downloaded_file_is_the_whole_table(tmp_path, monkeypatch):
 
 
 def test_a_missing_file_says_what_to_run(tmp_path, monkeypatch):
-    monkeypatch.setattr(pools, "_JSON_PATH", str(tmp_path / "absent.json"))
+    monkeypatch.setattr(pools, "JSON_PATH", str(tmp_path / "absent.json"))
     with pytest.raises(RuntimeError, match="refresh_pools.py"):
         pools.load_pools()
 
@@ -130,7 +130,7 @@ def test_a_missing_file_says_what_to_run(tmp_path, monkeypatch):
 def test_an_empty_file_says_what_to_run(tmp_path, monkeypatch):
     path = tmp_path / "pools_known.json"
     path.write_text("{}")
-    monkeypatch.setattr(pools, "_JSON_PATH", str(path))
+    monkeypatch.setattr(pools, "JSON_PATH", str(path))
     with pytest.raises(RuntimeError, match="refresh_pools.py"):
         pools.load_pools()
 

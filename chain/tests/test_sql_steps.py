@@ -7,12 +7,14 @@ import pytest
 import bqio
 import config
 
-SQL_FILES = sorted(os.path.basename(p)
-                   for p in glob.glob(os.path.join(bqio.SQL_DIR, "*.sql")))
+SQL_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "sql")
 
-# The acceleration steps live in `../acceleration/sql/`, in their own
-# dataset, outside the 01-08 pipeline chain -- covered by their own tests in
-# `acceleration/tests/test_sql_steps.py` rather than folded in here.
+SQL_FILES = sorted(os.path.basename(p)
+                   for p in glob.glob(os.path.join(SQL_DIR, "*.sql")))
+
+# The broker steps live in `../broker/sql/`, in their own dataset, outside
+# the 01-08 pipeline chain -- covered by their own tests in
+# `broker/tests/test_accel_sql_steps.py` rather than folded in here.
 
 # Steps that read or write the summary tables the band formula feeds.
 BAND_STEPS = ("07_revenue_bands.sql", "07c_pool_summary.sql")
@@ -31,7 +33,7 @@ def test_sql_dir_is_not_empty():
 
 @pytest.mark.parametrize("name", SQL_FILES)
 def test_every_step_renders(name):
-    sql = bqio.render(name)
+    sql = bqio.render(sql_path(name))
     assert "${" not in sql
 
 
@@ -43,8 +45,12 @@ def test_filename_matches_its_step_label(name):
     assert name.split("_")[0] == match.group(1)
 
 
+def sql_path(name):
+    return os.path.join(SQL_DIR, name)
+
+
 def source(name):
-    with open(os.path.join(bqio.SQL_DIR, name)) as fh:
+    with open(sql_path(name)) as fh:
         return fh.read()
 
 
@@ -68,23 +74,23 @@ def test_full_block_denominator_requires_a_floor(name):
     assert "${low_fee_denominator}" in text
     # ...and no bare `b.is_full` slipped back in beside it.
     assert "b.is_full" not in text
-    assert config.FULL_AND_PRICED in bqio.render(name)
+    assert config.FULL_AND_PRICED in bqio.render(sql_path(name))
 
 
 @pytest.mark.parametrize("name", DENOMINATOR_STEPS)
 def test_full_block_denominator_excludes_nonrelayable(name):
-    assert "NOT t.is_nonrelayable" in bqio.render(name)
+    assert "NOT t.is_nonrelayable" in bqio.render(sql_path(name))
 
 
 def test_sensitivity_grid_uses_the_same_tests():
-    sql = bqio.render("08_sensitivity.sql")
+    sql = bqio.render(sql_path("08_sensitivity.sql"))
     assert "f.is_full" in sql
     assert "f.floor_fee_rate IS NOT NULL" in sql
     assert "NOT t.is_nonrelayable" in sql
 
 
 def test_sensitivity_grid_is_keyed_by_month():
-    sql = bqio.render("08_sensitivity.sql")
+    sql = bqio.render(sql_path("08_sensitivity.sql"))
     assert "GROUP BY t.block_month, f.sensitivity, f.full_weight" in sql
     assert "t.block_month,\n  f.sensitivity" in sql
 
@@ -95,7 +101,7 @@ def test_step_dry_runs(name):
     from google.api_core.exceptions import NotFound
 
     try:
-        scanned = bqio.dry_run(bqio.render(name))
+        scanned = bqio.dry_run(bqio.render(sql_path(name)))
     except NotFound as exc:
         pytest.skip(f"needs a table an earlier step builds: "
                     f"{str(exc).splitlines()[0][:80]}")

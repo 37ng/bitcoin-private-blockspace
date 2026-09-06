@@ -9,6 +9,8 @@ import config
 import effective_fee
 import export_results
 
+SQL_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sql")
+
 # name, kind, what it does
 STEPS = [
     ("01_tx_base", "sql", "read the public dataset once"),
@@ -60,7 +62,7 @@ CHECKS = [
 
 
 def sql_name(step):
-    return f"{step}.sql"
+    return os.path.join(SQL_DIR, f"{step}.sql")
 
 
 def select_steps(args):
@@ -166,7 +168,7 @@ def main():
 
     estimate = None
     if any(s[0] == "01_tx_base" for s in steps):
-        estimate = bqio.dry_run(bqio.render("01_tx_base.sql"))
+        estimate = bqio.dry_run(bqio.render(sql_name("01_tx_base")))
         print(f"step 01 will scan {bqio.human_bytes(estimate)} "
               f"(about ${bqio.usd(estimate):.2f})")
         if not args.yes and not bqio.confirm("run it?"):

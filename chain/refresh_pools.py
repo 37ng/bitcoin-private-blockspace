@@ -1,7 +1,12 @@
 import argparse
 import json
 import os
+import sys
+
 import requests
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "utils"))
+
 import pools
 
 SOURCE = "https://raw.githubusercontent.com/mempool/mining-pools/master/pools-v2.json"
@@ -72,8 +77,7 @@ def main():
 
     if args.print_only:
         return
-    path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                        "pools_known.json")
+    path = pools.JSON_PATH
     with open(path, "w") as fh:
         json.dump(fresh, fh, indent=1, sort_keys=True)
     print(f"wrote {path}")
