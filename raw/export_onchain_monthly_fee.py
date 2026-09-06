@@ -8,7 +8,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 import bqio
 import config
 
-FILENAME = "monthly_fee.json"
+FILENAME = "onchain_monthly_fee.json"
 SATS = 100_000_000
 
 
@@ -16,7 +16,7 @@ def monthly_rows():
     return bqio.rows(
         f"SELECT FORMAT_DATE('%Y-%m', block_month) AS month, txs, blocks, "
         f"fee_sats, vbytes, fee_rate_sat_vb "
-        f"FROM `{config.dst()}.monthly_fee` ORDER BY block_month")
+        f"FROM `{config.dst()}.onchain_monthly_fee` ORDER BY block_month")
 
 
 def build(rows):
@@ -94,7 +94,7 @@ def main():
 
     fresh = build(monthly_rows())
     if not fresh:
-        print("the monthly_fee table is empty; nothing to publish")
+        print("the onchain_monthly_fee table is empty; nothing to publish")
         return 1
 
     months = merge(read(args.out), fresh)
