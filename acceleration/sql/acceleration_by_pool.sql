@@ -16,7 +16,6 @@ SELECT
   b.pool_name,
   COUNT(*)                                  AS n_accelerations,
   SUM(a.fee_delta)                          AS off_chain_sats,
-  SUM(a.fee_delta) / 100000000              AS off_chain_btc,
   SUM(a.effective_vsize)                    AS vsize,
   SAFE_DIVIDE(SUM(a.fee_delta), SUM(a.effective_vsize))     AS off_chain_sat_vb,
   SAFE_DIVIDE(SUM(a.effective_fee), SUM(a.effective_vsize)) AS on_chain_sat_vb,

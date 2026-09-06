@@ -1,3 +1,4 @@
+-- Step 01a: total transaction fees per month.
 CREATE OR REPLACE TABLE `${dst}.monthly_fee`
 OPTIONS (description = "Total transaction fees paid per month, ${start_date} onward.")
 AS

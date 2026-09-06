@@ -21,7 +21,6 @@ SELECT
   DATE_TRUNC(DATE(added), MONTH)              AS month,
   COUNT(*)                                    AS n_accelerations,
   SUM(fee_delta)                              AS off_chain_sats,
-  SUM(fee_delta) / 100000000                  AS off_chain_btc,
   SUM(bid_boost)                              AS bid_boost_sats,
   SUM(effective_fee)                          AS on_chain_sats,
   SUM(effective_vsize)                        AS vsize,

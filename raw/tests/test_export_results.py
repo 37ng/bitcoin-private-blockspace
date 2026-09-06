@@ -21,8 +21,8 @@ def monthly(month, low_fee_vbytes=100, full=1000):
     for s in ("30", "50", "70"):
         row[f"low_fee_txs_{s}"] = 2
         row[f"low_fee_vbytes_{s}"] = low_fee_vbytes
-        row[f"lower_band_btc_{s}"] = 1.0
-        row[f"upper_band_btc_{s}"] = 3.0
+        row[f"lower_band_sats_{s}"] = 1e8
+        row[f"upper_band_sats_{s}"] = 3e8
     return row
 
 
@@ -31,14 +31,14 @@ def pools(month, name="PoolA"):
             "vbytes": 800, "full_block_vbytes": 800, "low_fee_txs_50": 2,
             "low_fee_vbytes_30": 50, "low_fee_vbytes_50": 100,
             "low_fee_vbytes_70": 150, "low_fee_share_of_full_50": 0.125,
-            "lower_band_btc_50": 1.0, "upper_band_btc_50": 3.0}
+            "lower_band_sats_50": 1e8, "upper_band_sats_50": 3e8}
 
 
 def grid(month, low_fee_vbytes=100):
     return {"block_month": month, "sensitivity": 0.5, "full_weight": 3900000,
             "low_fee_txs": 2, "low_fee_vbytes": low_fee_vbytes,
             "full_block_vbytes": 1000, "low_fee_share": low_fee_vbytes / 1000,
-            "lower_band_btc": 1.0, "upper_band_btc": 3.0}
+            "lower_band_sats": 1e8, "upper_band_sats": 3e8}
 
 
 def sample(month, tx_hash, upper=500):

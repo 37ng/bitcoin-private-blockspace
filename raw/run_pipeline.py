@@ -117,8 +117,8 @@ def headline():
       SELECT
         SUM(low_fee_vbytes_50) AS vbytes_50,
         SAFE_DIVIDE(SUM(low_fee_vbytes_50), SUM(full_block_vbytes)) AS share_50,
-        SUM(lower_band_btc_50) AS lower_btc,
-        SUM(upper_band_btc_50) AS upper_btc,
+        SUM(lower_band_sats_50) AS lower_sats,
+        SUM(upper_band_sats_50) AS upper_sats,
         SUM(low_fee_vbytes_30) AS vbytes_30,
         SUM(low_fee_vbytes_70) AS vbytes_70
       FROM `${dst}.monthly_summary`
@@ -132,8 +132,8 @@ def headline():
           f"({(row['share_50'] or 0) * 100:.2f}% of space in full blocks)")
     print(f"  range across 0.3-0.7  {row['vbytes_30'] / 1e9:,.2f} - "
           f"{row['vbytes_70'] / 1e9:,.2f} GvB")
-    print(f"  value              {row['lower_btc']:,.2f} - "
-          f"{row['upper_btc']:,.2f} BTC")
+    print(f"  value              {row['lower_sats'] / 1e8:,.2f} - "
+          f"{row['upper_sats'] / 1e8:,.2f} BTC")
     print("  read low_fee_sensitivity before quoting any of this")
 
 
