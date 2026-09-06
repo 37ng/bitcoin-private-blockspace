@@ -41,7 +41,7 @@ SELECT
   low_fee_vbytes_50,
   low_fee_vbytes_70,
   SAFE_DIVIDE(low_fee_vbytes_50, full_block_vbytes) AS low_fee_share_of_full_50,
-  lower_band_sats_50 / 1e8 AS lower_band_btc_50,
-  upper_band_sats_50 / 1e8 AS upper_band_btc_50
+  lower_band_sats_50,
+  upper_band_sats_50
 FROM per_pool
 ORDER BY block_month, low_fee_vbytes_50 DESC

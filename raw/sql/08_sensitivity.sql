@@ -48,9 +48,9 @@ SELECT
     SUM(IF(f.is_full, t.virtual_size, 0))) AS low_fee_share,
   SUM(IF(t.effective_fee_rate < f.sensitivity * f.floor_fee_rate,
          GREATEST(f.floor_fee_rate - t.effective_fee_rate, 0) * t.virtual_size,
-         0)) / 1e8 AS lower_band_btc,
+         0)) AS lower_band_sats,
   SUM(IF(t.effective_fee_rate < f.sensitivity * f.floor_fee_rate,
-         f.median_fee_rate * t.virtual_size, 0)) / 1e8 AS upper_band_btc
+         f.median_fee_rate * t.virtual_size, 0)) AS upper_band_sats
 FROM block_fullness AS f
 JOIN `${dst}.txs` AS t USING (block_number)
 -- `config.FULL_AND_PRICED`, spelled out because the fullness test here is the

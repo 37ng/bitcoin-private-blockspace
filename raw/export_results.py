@@ -118,7 +118,7 @@ def merge_sample(existing, fresh, months, sort_col, k=SAMPLE_SIZE):
 def sensitivity_totals(grid):
     keys = ["sensitivity", "full_weight"]
     sum_cols = ["low_fee_txs", "low_fee_vbytes", "full_block_vbytes",
-                "lower_band_btc", "upper_band_btc"]
+                "lower_band_sats", "upper_band_sats"]
     if grid is None or grid.empty:
         return pd.DataFrame(columns=keys + sum_cols + ["low_fee_share"])
     totals = grid.groupby(keys, as_index=False)[sum_cols].sum()
@@ -142,8 +142,8 @@ def headline_numbers(monthly, sensitivity):
         "full_block_vbytes": int(full),
         "share_of_full_block_space": round(float(low_fee) / float(full), 6)
         if full else None,
-        "lower_band_btc": round(float(monthly[f"lower_band_btc_{sensitivity}"].sum()), 4),
-        "upper_band_btc": round(float(monthly[f"upper_band_btc_{sensitivity}"].sum()), 4),
+        "lower_band_btc": round(float(monthly[f"lower_band_sats_{sensitivity}"].sum()) / 1e8, 4),
+        "upper_band_btc": round(float(monthly[f"upper_band_sats_{sensitivity}"].sum()) / 1e8, 4),
         "nonrelayable_txs": int(monthly["nonrelayable_txs"].sum()),
         "nonrelayable_vbytes": int(monthly["nonrelayable_vbytes"].sum()),
     }
@@ -194,7 +194,7 @@ def write_summary(out_dir, monthly, sensitivity_grid, pools):
         lines.append(
             f"| {r['sensitivity']} | {int(r['full_weight']):,} | "
             f"{r['low_fee_vbytes'] / 1e9:,.2f} | {share} | "
-            f"{r['lower_band_btc']:,.2f} | {r['upper_band_btc']:,.2f} |")
+            f"{r['lower_band_sats'] / 1e8:,.2f} | {r['upper_band_sats'] / 1e8:,.2f} |")
 
     if len(pools):
         top = (pools.groupby("pool_name")[["low_fee_vbytes_50", "vbytes"]]
