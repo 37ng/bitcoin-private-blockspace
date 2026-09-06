@@ -190,7 +190,7 @@ def main():
         print(f"\nmerging {args.month} into {config.OUT_DIR}/")
         export_results.export_month(config.OUT_DIR)
         print(f"\ndone. delete the BigQuery working dataset when ready:"
-              f"\n  python delete_dataset.py")
+              f"\n  python ../utils/delete_dataset.py")
 
 
 if __name__ == "__main__":
