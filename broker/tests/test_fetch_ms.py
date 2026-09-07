@@ -1,3 +1,4 @@
+import json
 import os
 import sys
 from unittest.mock import Mock, patch
@@ -8,14 +9,19 @@ import fetch_ms
 
 
 @patch("fetch_ms.requests.get")
-def test_fetch_ms_combines_pages_until_empty_response(mock_get):
+def test_fetch_ms_combines_pages_until_empty_response(mock_get, tmp_path):
 	responses = [Mock(), Mock(), Mock()]
 	responses[0].json.return_value = [{"txid": "first"}]
 	responses[1].json.return_value = [{"txid": "second"}]
 	responses[2].json.return_value = []
 	mock_get.side_effect = responses
 
-	assert fetch_ms.fetch_ms("2024-02") == [
+	with patch.object(fetch_ms, "DATA_DIR", tmp_path):
+		assert fetch_ms.fetch_ms("2024-02") == [
+			{"txid": "first"},
+			{"txid": "second"},
+		]
+	assert json.loads((tmp_path / "2024-02.json").read_text()) == [
 		{"txid": "first"},
 		{"txid": "second"},
 	]

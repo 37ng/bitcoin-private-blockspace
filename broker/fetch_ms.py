@@ -2,6 +2,7 @@
 
 import argparse
 import json
+from pathlib import Path
 from datetime import datetime, timezone
 
 import requests
@@ -11,6 +12,7 @@ MAX_PAGE_LENGTH = 50
 SLEEP_INTERVAL_SEC = 5
 TIMEOUT = 30
 HEADERS = {"User-Agent": "bitcoin-private-blockspace/1.0 (research)"}
+DATA_DIR = Path(__file__).parent / "data"
 
 
 def fetch_ms(month: str) -> list[dict]:
@@ -38,6 +40,7 @@ def fetch_ms(month: str) -> list[dict]:
 		response.raise_for_status()
 		page_data = response.json()
 		if not page_data:
+			(DATA_DIR / f"{month}.json").write_text(json.dumps(data, indent=2) + "\n")
 			return data
 		data.extend(page_data)
 		page += 1
