@@ -24,12 +24,12 @@ def month_to_timestamp(month: str) -> int:
 	return int(datetime(year, month_number, 1, tzinfo=timezone.utc).timestamp())
 
 
-def fetch_ms(from_timestamp: int, to_timestamp: int) -> list[dict]:
+def fetch_ms(from_year_month: str, to_year_month: str) -> list[dict]:
 	response = requests.get(
 		API,
 		params={
-			"from": from_timestamp,
-			"to": to_timestamp,
+			"from": month_to_timestamp(from_year_month),
+			"to": month_to_timestamp(to_year_month),
 			"page": 1,
 			"pageLength": MAX_PAGE_LENGTH,
 		},
@@ -42,11 +42,11 @@ def fetch_ms(from_timestamp: int, to_timestamp: int) -> list[dict]:
 
 def main() -> None:
 	parser = argparse.ArgumentParser()
-	parser.add_argument("--from", dest="from_timestamp", type=int, required=True)
-	parser.add_argument("--to", dest="to_timestamp", type=int, required=True)
+	parser.add_argument("--from", dest="from_year_month", required=True)
+	parser.add_argument("--to", dest="to_year_month", required=True)
 	args = parser.parse_args()
 
-	data = fetch_ms(args.from_timestamp, args.to_timestamp)
+	data = fetch_ms(args.from_year_month, args.to_year_month)
 	print(json.dumps(data, indent=2))
 
 
