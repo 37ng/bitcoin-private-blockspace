@@ -29,8 +29,6 @@ def load_pools() -> list[Pool]:
 
 
 def load_pool_ids() -> dict[int, str]:
-    if not os.path.exists(JSON_PATH):
-        return {}
     return {entry["id"]: name for name, entry in _load().items()
             if "id" in entry}
 

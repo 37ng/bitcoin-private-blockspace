@@ -90,10 +90,12 @@ def test_the_id_map_reads_back_from_the_written_file(tmp_path, monkeypatch):
     assert pools.load_pool_ids() == {111: "Foundry USA", 44: "AntPool"}
 
 
-def test_the_id_map_is_empty_without_a_refreshed_file(tmp_path, monkeypatch):
+def test_the_id_map_needs_a_refreshed_file(tmp_path, monkeypatch):
     monkeypatch.setattr(pools, "JSON_PATH", str(tmp_path / "absent.json"))
-    assert pools.load_pool_ids() == {}
-    assert pools.pool_id_struct_sql().startswith("ARRAY<STRUCT<")
+    with pytest.raises(RuntimeError, match="refresh_pools.py"):
+        pools.load_pool_ids()
+    with pytest.raises(RuntimeError, match="refresh_pools.py"):
+        pools.pool_id_struct_sql()
 
 
 def test_the_id_map_becomes_a_sql_lookup(tmp_path, monkeypatch):
