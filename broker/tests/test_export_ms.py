@@ -4,7 +4,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import export_accelerations as ex
+import export_ms as ex
 
 
 def ts(text):

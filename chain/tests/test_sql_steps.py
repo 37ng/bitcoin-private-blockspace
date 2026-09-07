@@ -14,7 +14,7 @@ SQL_FILES = sorted(os.path.basename(p)
 
 # The broker steps live in `../broker/sql/`, in their own dataset, outside
 # the 01-08 pipeline chain -- covered by their own tests in
-# `broker/tests/test_accel_sql_steps.py` rather than folded in here.
+# `broker/tests/test_ms_sql_steps.py` rather than folded in here.
 
 # Steps that read or write the summary tables the band formula feeds.
 BAND_STEPS = ("07_revenue_bands.sql", "07c_pool_summary.sql")

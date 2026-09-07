@@ -10,7 +10,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 import bqio
 import config
 
-FILENAME = "accelerations_monthly.json"
+FILENAME = "ms_monthly.json"
 SATS = 100_000_000
 
 
@@ -43,7 +43,7 @@ def run_bounds():
     result = bqio.rows(
         f"SELECT UNIX_SECONDS(MIN(added)) AS oldest, "
         f"UNIX_SECONDS(MAX(added)) AS newest "
-        f"FROM `{config.accel_dst()}.accelerations`")
+        f"FROM `{config.ms_dst()}.ms`")
     if not result or result[0]["oldest"] is None:
         return None, None
     return result[0]["oldest"], result[0]["newest"]
@@ -54,7 +54,7 @@ def monthly_rows():
         f"SELECT FORMAT_DATE('%Y-%m', month) AS month, n_accelerations, "
         f"off_chain_sats, bid_boost_sats, on_chain_sats, vsize, "
         f"off_chain_sat_vb, on_chain_sat_vb "
-        f"FROM `{config.accel_dst()}.acceleration_monthly` ORDER BY month")
+        f"FROM `{config.ms_dst()}.ms_monthly` ORDER BY month")
 
 
 # --- the file -----------------------------------------------------------
@@ -146,7 +146,7 @@ def report(payload, held):
             print(f"  {h['month']}  {h['n_accelerations']:>6,d} records so far")
         first = below[0]["month"]
         print(f"\nTo take them in, extend the run past the start of {first}:")
-        print(f"  uv run python fetch_accelerations.py --back-to {first}-01")
+        print(f"  uv run python fetch_ms.py --back-to {first}-01")
 
 
 def main():
@@ -161,7 +161,7 @@ def main():
 
     oldest, newest = run_bounds()
     if oldest is None:
-        print("the accelerations table is empty; nothing to publish")
+        print("the ms table is empty; nothing to publish")
         return 1
     print(f"the run spans {time.strftime('%Y-%m-%d', time.gmtime(oldest))} to "
           f"{time.strftime('%Y-%m-%d', time.gmtime(newest))}, with nothing "

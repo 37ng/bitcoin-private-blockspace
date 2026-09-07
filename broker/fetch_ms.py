@@ -14,15 +14,11 @@ import config
 
 API = "https://mempool.space/api/v1/services/accelerator/accelerations/history"
 
-# The endpoint silently caps pageLength at 50; asking for more wastes nothing
-# but returns no more rows.
+# The endpoint silently caps pageLength at 50
 MAX_PAGE_LENGTH = 50
 
-# Seconds between requests: 3 a minute. The API publishes no rate limit, so
-# the pace is a choice rather than a measurement, and at 1s it pushed back
-# constantly -- the backoff, not the sleep, ended up setting the real rate.
-# Asking slowly costs a top-up nothing: it reads a page or two either way.
-DEFAULT_SLEEP = 20.0
+# An empirical number as api doesn't publish a rate limit
+DEFAULT_SLEEP_SEC = 10.0
 
 HEADERS = {"User-Agent": "bitcoin-private-blockspace/1.0 (research)"}
 
@@ -32,7 +28,7 @@ TERMINAL = ("completed", "failed")
 
 
 def cache_dir():
-    path = os.path.join(config.CACHE_DIR, "accelerations")
+    path = os.path.join(config.CACHE_DIR, "ms")
     os.makedirs(path, exist_ok=True)
     return path
 
@@ -283,15 +279,15 @@ def fetch_back_to(sleep, page_length, oldest_held, target, overlap, max_pages):
 
 # --- BigQuery ------------------------------------------------------------
 
-def accel_table():
-    return f"{config.accel_dst()}.accelerations"
+def ms_table():
+    return f"{config.ms_dst()}.ms"
 
 
 def table_missing():
     from google.cloud.exceptions import NotFound
     import bqio
     try:
-        bqio.client().get_table(accel_table())
+        bqio.client().get_table(ms_table())
         return False
     except NotFound:
         return True
@@ -303,7 +299,7 @@ def run_bounds():
         return None, None
     result = bqio.rows(
         f"SELECT UNIX_SECONDS(MIN(added)) AS oldest, "
-        f"UNIX_SECONDS(MAX(added)) AS newest FROM `{accel_table()}`")
+        f"UNIX_SECONDS(MAX(added)) AS newest FROM `{ms_table()}`")
     if not result or result[0]["oldest"] is None:
         return None, None
     return result[0]["oldest"], result[0]["newest"]
@@ -314,7 +310,7 @@ def existing_keys():
     if table_missing():
         return set()
     return {(r["txid"], int(r["added"].timestamp()) if r["added"] else None)
-            for r in bqio.rows(f"SELECT txid, added FROM `{accel_table()}`")}
+            for r in bqio.rows(f"SELECT txid, added FROM `{ms_table()}`")}
 
 
 def unloaded(records, have):
@@ -366,7 +362,7 @@ def load_to_bigquery(records, append):
 
     import bqio
 
-    bqio.ensure_dataset(config.ACCEL_DATASET)
+    bqio.ensure_dataset(config.MS_DATASET)
     if append:
         seen = len(records)
         records = unloaded(records, existing_keys())
@@ -382,13 +378,13 @@ def load_to_bigquery(records, append):
 
     disposition = "WRITE_APPEND" if append else "WRITE_TRUNCATE"
     job = bqio.client().load_table_from_json(
-        rows, accel_table(),
+        rows, ms_table(),
         job_config=bq.LoadJobConfig(schema=schema(),
                                     write_disposition=disposition),
     )
     job.result()
     verb = "appended" if append else "loaded"
-    print(f"{verb} {len(rows)} rows into {accel_table()}")
+    print(f"{verb} {len(rows)} rows into {ms_table()}")
 
 
 def main():

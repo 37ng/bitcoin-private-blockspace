@@ -5,7 +5,7 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import fetch_accelerations as fa
+import fetch_ms as fa
 
 
 def record(txid, added, status="completed"):
