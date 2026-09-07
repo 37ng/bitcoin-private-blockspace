@@ -1,4 +1,5 @@
 import os
+from typing import Optional
 
 # --- BigQuery targets ----------------------------------------------------
 
@@ -30,7 +31,7 @@ def month_of(date_str: str) -> str:
     return date_str[:8] + "01"
 
 
-def set_window(start_date: str, end_date: str = None) -> None:
+def set_window(start_date: str, end_date: Optional[str] = None) -> None:
     global START_DATE, END_DATE
     START_DATE = start_date
     if end_date:
