@@ -3,12 +3,13 @@
 import json
 from pathlib import Path
 from datetime import datetime, timezone
+import time
 
 import requests
 
 API = "https://mempool.space/api/v1/services/accelerator/accelerations/history"
 MAX_PAGE_LENGTH = 50
-SLEEP_INTERVAL_SEC = 5
+CALL_INTERVAL_SEC = 5
 TIMEOUT = 30
 HEADERS = {"User-Agent": "bitcoin-private-blockspace/1.0 (research)"}
 DATA_DIR = Path(__file__).parent / "data"
@@ -47,6 +48,7 @@ def fetch_ms(month: str) -> None:
 			timeout=TIMEOUT,
 		)
 		response.raise_for_status()
+		time.sleep(CALL_INTERVAL_SEC)
 		page_data = response.json()
 		if not page_data:
 			(DATA_DIR / f"{month}.json").write_text(json.dumps(data, indent=2) + "\n")
