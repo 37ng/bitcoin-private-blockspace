@@ -2,7 +2,6 @@
 
 import argparse
 import json
-import re
 from datetime import datetime, timezone
 
 import requests
@@ -14,25 +13,22 @@ TIMEOUT = 30
 HEADERS = {"User-Agent": "bitcoin-private-blockspace/1.0 (research)"}
 
 
-def month_to_timestamp(month: str) -> int:
-	match = re.fullmatch(r"(\d{2}|\d{4})[-/](\d{2})", month)
-	if not match:
-		raise ValueError("month must use YY-MM, YYYY-MM, YY/MM, or YYYY/MM format")
-	year, month_number = (int(part) for part in match.groups())
-	if year < 100:
-		year += 2000
-	return int(datetime(year, month_number, 1, tzinfo=timezone.utc).timestamp())
-
-# fetch mempool.space history accelerations data and 
-def fetch_ms(from_year_month: str, to_year_month: str) -> list[dict]:
+def fetch_ms(month: str) -> list[dict]:
+	year, month_number = map(int, month.split("-"))
+	from_timestamp = int(datetime(year, month_number, 1, tzinfo=timezone.utc).timestamp())
+	to_timestamp = int(
+		datetime(
+			year + month_number // 12, month_number % 12 + 1, 1, tzinfo=timezone.utc
+		).timestamp()
+	)
 	data = []
 	page = 1
 	while True:
 		response = requests.get(
 			API,
 			params={
-				"from": month_to_timestamp(from_year_month),
-				"to": month_to_timestamp(to_year_month),
+				"from": from_timestamp,
+				"to": to_timestamp,
 				"page": page,
 				"pageLength": MAX_PAGE_LENGTH,
 			},
@@ -49,11 +45,10 @@ def fetch_ms(from_year_month: str, to_year_month: str) -> list[dict]:
 
 def main() -> None:
 	parser = argparse.ArgumentParser()
-	parser.add_argument("--from", dest="from_year_month", required=True)
-	parser.add_argument("--to", dest="to_year_month", required=True)
+	parser.add_argument("--month", required=True)
 	args = parser.parse_args()
 
-	data = fetch_ms(args.from_year_month, args.to_year_month)
+	data = fetch_ms(args.month)
 	print(json.dumps(data, indent=2))
 
 
