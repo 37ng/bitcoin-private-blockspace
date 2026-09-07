@@ -80,7 +80,7 @@ def test_an_entry_without_an_id_carries_none():
 
 
 def _write_known(tmp_path, monkeypatch, payload):
-    path = tmp_path / "pools_known.json"
+    path = tmp_path / "pools.json"
     path.write_text(json.dumps(rp.convert(payload)))
     monkeypatch.setattr(pools, "JSON_PATH", str(path))
 
@@ -128,7 +128,7 @@ def test_a_missing_file_says_what_to_run(tmp_path, monkeypatch):
 
 
 def test_an_empty_file_says_what_to_run(tmp_path, monkeypatch):
-    path = tmp_path / "pools_known.json"
+    path = tmp_path / "pools.json"
     path.write_text("{}")
     monkeypatch.setattr(pools, "JSON_PATH", str(path))
     with pytest.raises(RuntimeError, match="refresh_pools.py"):

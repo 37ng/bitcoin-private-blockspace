@@ -2,7 +2,7 @@ import json
 import os
 
 JSON_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                          "pools_known.json")
+                          "pools.json")
 
 
 MISSING = (f"{os.path.basename(JSON_PATH)} is missing or empty. "
@@ -58,6 +58,7 @@ def tag_struct_sql() -> str:
     return "[\n    " + ",\n    ".join(rows) + "\n  ]"
 
 
+# 
 def address_struct_sql() -> str:
     owners = {}
     for name, _tags, addrs in load_pools():
