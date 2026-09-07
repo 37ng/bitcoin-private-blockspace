@@ -10,7 +10,7 @@ import requests
 
 API = "https://mempool.space/api/v1/services/accelerator/accelerations/history"
 MAX_PAGE_LENGTH = 50
-CALL_INTERVAL_SEC = 5
+CALL_INTERVAL_SEC = 10
 TIMEOUT = 30
 HEADERS = {"User-Agent": "bitcoin-private-blockspace/1.0 (research)"}
 DATA_DIR = Path(__file__).parent / "data"
