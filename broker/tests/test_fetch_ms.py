@@ -1,7 +1,6 @@
 import json
 import os
 import sys
-from datetime import datetime, timezone
 from unittest.mock import Mock, call, patch
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -38,7 +37,7 @@ def test_fetch_ms_combines_pages_until_empty_response(
 	assert [call.kwargs["params"]["page"] for call in mock_get.call_args_list] == [1, 2, 3]
 	assert [call.kwargs["params"]["from"] for call in mock_get.call_args_list] == [1706745600] * 3
 	assert [call.kwargs["params"]["to"] for call in mock_get.call_args_list] == [1709251200] * 3
-	assert mock_sleep.call_args_list == [call(fetch_ms.SLEEP_INTERVAL_SEC)] * 3
+	assert mock_sleep.call_args_list == [call(fetch_ms.CALL_INTERVAL_SEC)] * 3
 	assert mock_print.call_args_list == [
 		call("\r2024-02: fetching page 1", end="", flush=True),
 		call("\r2024-02: fetching page 2", end="", flush=True),
@@ -50,10 +49,10 @@ def test_fetch_ms_combines_pages_until_empty_response(
 
 
 @patch("fetch_ms.fetch_ms")
-@patch("fetch_ms.datetime")
-def test_main_fetches_complete_months_back_to_first_month(mock_datetime, mock_fetch_ms):
-	mock_datetime.now.return_value = datetime(2023, 3, 7, tzinfo=timezone.utc)
-
-	fetch_ms.main()
+def test_main_fetches_months_from_to(mock_fetch_ms):
+	with patch.object(
+		sys, "argv", ["fetch_ms.py", "--from", "2023-01", "--to", "2023-02"]
+	):
+		fetch_ms.main()
 
 	assert mock_fetch_ms.call_args_list == [call("2023-02"), call("2023-01")]

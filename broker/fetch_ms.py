@@ -1,5 +1,6 @@
 # fetch data from mempool.space(ms)
 
+import argparse
 import json
 from pathlib import Path
 from datetime import datetime, timezone
@@ -13,7 +14,6 @@ CALL_INTERVAL_SEC = 5
 TIMEOUT = 30
 HEADERS = {"User-Agent": "bitcoin-private-blockspace/1.0 (research)"}
 DATA_DIR = Path(__file__).parent / "data"
-FIRST_MONTH = "2023-01"
 
 def next_month(month: str) -> str:
 	year, month_number = map(int, month.split("-"))
@@ -59,8 +59,13 @@ def fetch_ms(month: str) -> None:
 
 
 def main() -> None:
-	month = previous_month(datetime.now(timezone.utc).strftime("%Y-%m"))
-	while month >= FIRST_MONTH:
+	parser = argparse.ArgumentParser()
+	parser.add_argument("--from", dest="from_month", required=True)
+	parser.add_argument("--to", dest="to_month", required=True)
+	args = parser.parse_args()
+
+	month = args.to_month
+	while month >= args.from_month:
 		fetch_ms(month)
 		month = previous_month(month)
 
