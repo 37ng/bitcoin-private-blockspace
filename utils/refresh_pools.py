@@ -1,11 +1,7 @@
 import argparse
 import json
-import os
-import sys
 
 import requests
-
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "utils"))
 
 import pools
 
@@ -39,7 +35,7 @@ def convert(payload):
                      if isinstance(a, str) and a]
         if not (tags or addresses):
             continue
-        row = {"tags": tags, "addresses": addresses}
+        row: dict = {"tags": tags, "addresses": addresses}
         pool_id = entry.get("id")
         if isinstance(pool_id, int) and not isinstance(pool_id, bool):
             row["id"] = pool_id
@@ -57,7 +53,7 @@ def main():
     fresh = convert(fetch(args.url))
     if not fresh:
         raise SystemExit("the downloaded list held no usable pools; "
-                         "leaving pools_known.json as it is")
+                         "leaving pools.json as it is")
 
     with_id = sum(1 for entry in fresh.values() if "id" in entry)
     try:

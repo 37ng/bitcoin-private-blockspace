@@ -80,7 +80,7 @@ def test_an_entry_without_an_id_carries_none():
 
 
 def _write_known(tmp_path, monkeypatch, payload):
-    path = tmp_path / "pools_known.json"
+    path = tmp_path / "pools.json"
     path.write_text(json.dumps(rp.convert(payload)))
     monkeypatch.setattr(pools, "JSON_PATH", str(path))
 
@@ -90,10 +90,12 @@ def test_the_id_map_reads_back_from_the_written_file(tmp_path, monkeypatch):
     assert pools.load_pool_ids() == {111: "Foundry USA", 44: "AntPool"}
 
 
-def test_the_id_map_is_empty_without_a_refreshed_file(tmp_path, monkeypatch):
+def test_the_id_map_needs_a_refreshed_file(tmp_path, monkeypatch):
     monkeypatch.setattr(pools, "JSON_PATH", str(tmp_path / "absent.json"))
-    assert pools.load_pool_ids() == {}
-    assert pools.pool_id_struct_sql().startswith("ARRAY<STRUCT<")
+    with pytest.raises(RuntimeError, match="refresh_pools.py"):
+        pools.load_pool_ids()
+    with pytest.raises(RuntimeError, match="refresh_pools.py"):
+        pools.pool_id_struct_sql()
 
 
 def test_the_id_map_becomes_a_sql_lookup(tmp_path, monkeypatch):
@@ -128,7 +130,7 @@ def test_a_missing_file_says_what_to_run(tmp_path, monkeypatch):
 
 
 def test_an_empty_file_says_what_to_run(tmp_path, monkeypatch):
-    path = tmp_path / "pools_known.json"
+    path = tmp_path / "pools.json"
     path.write_text("{}")
     monkeypatch.setattr(pools, "JSON_PATH", str(path))
     with pytest.raises(RuntimeError, match="refresh_pools.py"):

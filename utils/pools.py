@@ -2,39 +2,35 @@ import json
 import os
 
 JSON_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                          "pools_known.json")
+                          "pools.json")
 
 
 MISSING = (f"{os.path.basename(JSON_PATH)} is missing or empty. "
            "Run `python refresh_pools.py` to download the pool list.")
 
 
-def load_pools():
+Pool = tuple[str, list[str], list[str]]
+
+
+def _load() -> dict[str, dict]:
     if not os.path.exists(JSON_PATH):
         raise RuntimeError(MISSING)
     with open(JSON_PATH) as fh:
-        data = json.load(fh)
-    pools = [(name, entry.get("tags") or [], entry.get("addresses") or [])
-             for name, entry in sorted(data.items())
-             if isinstance(entry, dict)]
+        return json.load(fh)
+
+
+def load_pools() -> list[Pool]:
+    pools: list[Pool] = [
+        (name, entry.get("tags") or [], entry.get("addresses") or [])
+        for name, entry in sorted(_load().items())]
     if not pools:
         raise RuntimeError(MISSING)
     return pools
 
 
-def load_pool_ids():
-    if not os.path.exists(JSON_PATH):
-        return {}
-    with open(JSON_PATH) as fh:
-        data = json.load(fh)
-    ids = {}
-    for name, entry in data.items():
-        if not isinstance(entry, dict):
-            continue
-        pool_id = entry.get("id")
-        if isinstance(pool_id, int) and not isinstance(pool_id, bool):
-            ids[pool_id] = name
-    return ids
+def load_pool_ids() -> dict[int, str]:
+    return {entry["id"]: name for name, entry in _load().items()
+            if "id" in entry}
 
 
 def _sql_string(value: str) -> str:
@@ -42,8 +38,8 @@ def _sql_string(value: str) -> str:
 
 
 def tag_struct_sql() -> str:
-    rows = []
-    seen = set()
+    rows: list[str] = []
+    seen: set[str] = set()
     for name, tags, _addr in load_pools():
         for tag in tags:
             lowered = tag.lower()
@@ -59,14 +55,15 @@ def tag_struct_sql() -> str:
 
 
 def address_struct_sql() -> str:
-    owners = {}
-    for name, _tags, addrs in load_pools():
+    pools = load_pools();
+    owners: dict[str, set[str]] = {}
+    for name, _tags, addrs in pools:
         for addr in addrs:
             if not addr or " " in addr:  # skip placeholders
                 continue
             owners.setdefault(addr, set()).add(name)
-    rows = []
-    for name, _tags, addrs in load_pools():
+    rows: list[str] = []
+    for name, _tags, addrs in pools:
         for addr in addrs:
             if addr not in owners or len(owners[addr]) > 1:
                 continue  # ambiguous address attributes nothing
