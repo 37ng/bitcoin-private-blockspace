@@ -17,10 +17,7 @@ def test_fetch_ms_combines_pages_until_empty_response(mock_get, tmp_path):
 	mock_get.side_effect = responses
 
 	with patch.object(fetch_ms, "DATA_DIR", tmp_path):
-		assert fetch_ms.fetch_ms("2024-02") == [
-			{"txid": "first"},
-			{"txid": "second"},
-		]
+		fetch_ms.fetch_ms("2024-02")
 	assert json.loads((tmp_path / "2024-02.json").read_text()) == [
 		{"txid": "first"},
 		{"txid": "second"},

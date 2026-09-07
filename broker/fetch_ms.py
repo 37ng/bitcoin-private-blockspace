@@ -15,7 +15,7 @@ HEADERS = {"User-Agent": "bitcoin-private-blockspace/1.0 (research)"}
 DATA_DIR = Path(__file__).parent / "data"
 
 
-def fetch_ms(month: str) -> list[dict]:
+def fetch_ms(month: str) -> None:
 	year, month_number = map(int, month.split("-"))
 	from_timestamp = int(datetime(year, month_number, 1, tzinfo=timezone.utc).timestamp())
 	to_timestamp = int(
@@ -41,7 +41,7 @@ def fetch_ms(month: str) -> list[dict]:
 		page_data = response.json()
 		if not page_data:
 			(DATA_DIR / f"{month}.json").write_text(json.dumps(data, indent=2) + "\n")
-			return data
+			return
 		data.extend(page_data)
 		page += 1
 
@@ -51,8 +51,7 @@ def main() -> None:
 	parser.add_argument("--month", required=True)
 	args = parser.parse_args()
 
-	data = fetch_ms(args.month)
-	print(json.dumps(data, indent=2))
+	fetch_ms(args.month)
 
 
 if __name__ == "__main__":
