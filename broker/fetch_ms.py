@@ -1,6 +1,5 @@
 # fetch data from mempool.space(ms)
 
-import argparse
 import json
 from pathlib import Path
 from datetime import datetime, timezone
@@ -13,15 +12,24 @@ SLEEP_INTERVAL_SEC = 5
 TIMEOUT = 30
 HEADERS = {"User-Agent": "bitcoin-private-blockspace/1.0 (research)"}
 DATA_DIR = Path(__file__).parent / "data"
+FIRST_MONTH = "2023-01"
+
+def next_month(month: str) -> str:
+	year, month_number = map(int, month.split("-"))
+	return f"{year + month_number // 12:04d}-{month_number % 12 + 1:02d}"
+
+
+def previous_month(month: str) -> str:
+	year, month_number = map(int, month.split("-"))
+	return f"{year - (month_number == 1):04d}-{(month_number - 2) % 12 + 1:02d}"
 
 
 def fetch_ms(month: str) -> None:
 	year, month_number = map(int, month.split("-"))
 	from_timestamp = int(datetime(year, month_number, 1, tzinfo=timezone.utc).timestamp())
+	to_year, to_month_number = map(int, next_month(month).split("-"))
 	to_timestamp = int(
-		datetime(
-			year + month_number // 12, month_number % 12 + 1, 1, tzinfo=timezone.utc
-		).timestamp()
+		datetime(to_year, to_month_number, 1, tzinfo=timezone.utc).timestamp()
 	)
 	data = []
 	page = 1
@@ -47,11 +55,10 @@ def fetch_ms(month: str) -> None:
 
 
 def main() -> None:
-	parser = argparse.ArgumentParser()
-	parser.add_argument("--month", required=True)
-	args = parser.parse_args()
-
-	fetch_ms(args.month)
+	month = previous_month(datetime.now(timezone.utc).strftime("%Y-%m"))
+	while month >= FIRST_MONTH:
+		fetch_ms(month)
+		month = previous_month(month)
 
 
 if __name__ == "__main__":
