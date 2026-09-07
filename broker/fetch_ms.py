@@ -60,6 +60,8 @@ def fetch_ms(month: str) -> None:
 
 def main() -> None:
 	parser = argparse.ArgumentParser()
+
+	# from/to are inclusive
 	parser.add_argument("--from", dest="from_month", required=True)
 	parser.add_argument("--to", dest="to_month", required=True)
 	args = parser.parse_args()
