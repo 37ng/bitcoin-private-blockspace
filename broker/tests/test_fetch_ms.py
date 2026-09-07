@@ -26,13 +26,13 @@ def test_fetch_ms_converts_year_month_arguments(mock_get):
 	response.json.return_value = []
 	mock_get.return_value = response
 
-	assert fetch_ms.fetch_ms("2024-02", "2024-03") == []
+	assert fetch_ms.fetch_ms("2024-02", "2024-03", page=3) == []
 	mock_get.assert_called_once_with(
 		fetch_ms.API,
 		params={
 			"from": 1706745600,
 			"to": 1709251200,
-			"page": 1,
+			"page": 3,
 			"pageLength": fetch_ms.MAX_PAGE_LENGTH,
 		},
 		headers=fetch_ms.HEADERS,
