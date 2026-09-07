@@ -23,7 +23,7 @@ def month_to_timestamp(month: str) -> int:
 		year += 2000
 	return int(datetime(year, month_number, 1, tzinfo=timezone.utc).timestamp())
 
-
+# fetch mempool.space in memory
 def fetch_ms(from_year_month: str, to_year_month: str) -> list[dict]:
 	data = []
 	page = 1
