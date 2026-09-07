@@ -21,21 +21,17 @@ def test_month_to_timestamp_rejects_invalid_month(month):
 
 
 @patch("fetch_ms.requests.get")
-def test_fetch_ms_converts_year_month_arguments(mock_get):
-	response = Mock()
-	response.json.return_value = []
-	mock_get.return_value = response
+def test_fetch_ms_combines_pages_until_empty_response(mock_get):
+	responses = [Mock(), Mock(), Mock()]
+	responses[0].json.return_value = [{"txid": "first"}]
+	responses[1].json.return_value = [{"txid": "second"}]
+	responses[2].json.return_value = []
+	mock_get.side_effect = responses
 
-	assert fetch_ms.fetch_ms("2024-02", "2024-03", page=3) == []
-	mock_get.assert_called_once_with(
-		fetch_ms.API,
-		params={
-			"from": 1706745600,
-			"to": 1709251200,
-			"page": 3,
-			"pageLength": fetch_ms.MAX_PAGE_LENGTH,
-		},
-		headers=fetch_ms.HEADERS,
-		timeout=fetch_ms.TIMEOUT,
-	)
-	response.raise_for_status.assert_called_once_with()
+	assert fetch_ms.fetch_ms("2024-02", "2024-03") == [
+		{"txid": "first"},
+		{"txid": "second"},
+	]
+	assert [call.kwargs["params"]["page"] for call in mock_get.call_args_list] == [1, 2, 3]
+	for response in responses:
+		response.raise_for_status.assert_called_once_with()

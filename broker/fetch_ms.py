@@ -24,30 +24,36 @@ def month_to_timestamp(month: str) -> int:
 	return int(datetime(year, month_number, 1, tzinfo=timezone.utc).timestamp())
 
 
-def fetch_ms(from_year_month: str, to_year_month: str, page: int = 1) -> list[dict]:
-	response = requests.get(
-		API,
-		params={
-			"from": month_to_timestamp(from_year_month),
-			"to": month_to_timestamp(to_year_month),
-			"page": page,
-			"pageLength": MAX_PAGE_LENGTH,
-		},
-		headers=HEADERS,
-		timeout=TIMEOUT,
-	)
-	response.raise_for_status()
-	return response.json()
+def fetch_ms(from_year_month: str, to_year_month: str) -> list[dict]:
+	data = []
+	page = 1
+	while True:
+		response = requests.get(
+			API,
+			params={
+				"from": month_to_timestamp(from_year_month),
+				"to": month_to_timestamp(to_year_month),
+				"page": page,
+				"pageLength": MAX_PAGE_LENGTH,
+			},
+			headers=HEADERS,
+			timeout=TIMEOUT,
+		)
+		response.raise_for_status()
+		page_data = response.json()
+		if not page_data:
+			return data
+		data.extend(page_data)
+		page += 1
 
 
 def main() -> None:
 	parser = argparse.ArgumentParser()
 	parser.add_argument("--from", dest="from_year_month", required=True)
 	parser.add_argument("--to", dest="to_year_month", required=True)
-	parser.add_argument("--page", type=int, default=1)
 	args = parser.parse_args()
 
-	data = fetch_ms(args.from_year_month, args.to_year_month, args.page)
+	data = fetch_ms(args.from_year_month, args.to_year_month)
 	print(json.dumps(data, indent=2))
 
 
