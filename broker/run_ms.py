@@ -28,6 +28,9 @@ def dry_run(steps):
             first = str(exc).split("\n")[0]
             print(f"  {name:34s} needs an earlier step ({first[:60]})")
             continue
+        if scanned is None:
+            print(f"  {name:34s} scan size unavailable")
+            continue
         total += scanned
         print(f"  {name:34s} {bqio.human_bytes(scanned):>10s}  "
               f"${bqio.usd(scanned):6.2f}  {what}")
