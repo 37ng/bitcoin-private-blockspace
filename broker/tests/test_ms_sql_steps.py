@@ -36,9 +36,9 @@ def test_every_step_renders(name):
 
 
 @pytest.mark.parametrize("name", SQL_FILES)
-def test_accel_steps_write_the_accel_dataset(name):
+def test_ms_steps_write_the_ms_dataset(name):
     sql = bqio.render(sql_path(name))
-    assert f"CREATE OR REPLACE TABLE `{config.accel_dst()}." in sql
+    assert f"CREATE OR REPLACE TABLE `{config.ms_dst()}." in sql
     assert f"{config.dst()}.acceleration" not in sql
 
 

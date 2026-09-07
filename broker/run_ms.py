@@ -10,8 +10,8 @@ import config
 SQL_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sql")
 
 STEPS = [
-    ("acceleration_monthly", "out-of-band spend per month"),
-    ("acceleration_by_pool", "out-of-band spend per pool"),
+    ("ms_monthly", "out-of-band spend per month"),
+    ("ms_by_pool", "out-of-band spend per pool"),
 ]
 
 
@@ -43,7 +43,7 @@ def main():
                         help="report bytes per step and stop")
     args = parser.parse_args()
 
-    bqio.ensure_dataset(config.ACCEL_DATASET)
+    bqio.ensure_dataset(config.MS_DATASET)
 
     if args.dry_run:
         dry_run(STEPS)
