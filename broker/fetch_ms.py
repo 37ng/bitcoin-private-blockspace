@@ -9,7 +9,7 @@ import requests
 
 API = "https://mempool.space/api/v1/services/accelerator/accelerations/history"
 MAX_PAGE_LENGTH = 50
-SLEEP_INTERVAL_MS = 10.0
+SLEEP_INTERVAL_SEC = 5
 TIMEOUT = 30
 HEADERS = {"User-Agent": "bitcoin-private-blockspace/1.0 (research)"}
 
@@ -23,7 +23,7 @@ def month_to_timestamp(month: str) -> int:
 		year += 2000
 	return int(datetime(year, month_number, 1, tzinfo=timezone.utc).timestamp())
 
-# fetch mempool.space in memory
+# fetch mempool.space history accelerations data and 
 def fetch_ms(from_year_month: str, to_year_month: str) -> list[dict]:
 	data = []
 	page = 1
