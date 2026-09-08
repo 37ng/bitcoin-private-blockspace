@@ -1,4 +1,4 @@
--- Out-of-band spend through mempool.space, per month.
+-- Off-chain spend through mempool.space, per month.
 --
 -- Lives in `${ms_dst}`, not the pipeline's `${dst}`: this is not part of
 -- the measurement, it is a labelled sample of confirmed out-of-auction

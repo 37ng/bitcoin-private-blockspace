@@ -10,8 +10,8 @@ import config
 SQL_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sql")
 
 STEPS = [
-    ("ms_monthly", "out-of-band spend per month"),
-    ("ms_by_pool", "out-of-band spend per pool"),
+    ("ms_monthly", "off-chain spend per month"),
+    ("ms_by_pool", "off-chain spend per pool"),
 ]
 
 
