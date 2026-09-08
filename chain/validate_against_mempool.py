@@ -111,6 +111,6 @@ def validate(sample, sleep, sensitivity):
           f"({total_in_accelerated / total_low_fee * 100:.1f}%)")
     print("\naddedTxs is a presence measure and the low-fee test is a price "
           "measure, so partial overlap is the expected result, not a failure.")
-    print("Transactions in acceleratedTxs were bought out of band through a "
+    print("Transactions in acceleratedTxs were bought off-chain through a "
           "public service: they confirm the mechanism, and they are the part "
           "of the count that is not invisible.")
