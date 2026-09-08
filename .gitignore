@@ -4,4 +4,3 @@ __pycache__/
 .claude/worktrees/
 .DS_Store
 .gpt/worktrees/
-broker/ms.json

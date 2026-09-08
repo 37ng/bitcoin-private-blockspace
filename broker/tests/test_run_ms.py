@@ -90,8 +90,8 @@ def test_run_writes_both_json_views(tmp_path, monkeypatch):
                              "AntPool": {"months": {"2024-01": 5},
                                          "sum": 5}},
                         ))
-    month_output_path = tmp_path / "ms-by-month.json"
-    pool_output_path = tmp_path / "ms-by-pool.json"
+    month_output_path = tmp_path / "mempool-space-by-month.json"
+    pool_output_path = tmp_path / "mempool-space-by-pool.json"
 
     run_ms.run(tmp_path, "pool-url", month_output_path, pool_output_path)
 

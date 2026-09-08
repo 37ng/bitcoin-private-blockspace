@@ -7,8 +7,10 @@ import requests
 
 POOL_URL = "https://raw.githubusercontent.com/mempool/mining-pools/master/pools-v2.json"
 DATA_DIR = Path(__file__).parent / "data"
-MONTH_OUTPUT_PATH = Path(__file__).parent / "ms-by-month.json"
-POOL_OUTPUT_PATH = Path(__file__).parent / "ms-by-pool.json"
+SITE_DATA_DIR = (Path(__file__).parents[2] / "37ng.github.io" / "src" /
+                 "posts" / "bitcoin" / "data")
+MONTH_OUTPUT_PATH = SITE_DATA_DIR / "mempool-space-by-month.json"
+POOL_OUTPUT_PATH = SITE_DATA_DIR / "mempool-space-by-pool.json"
 HEADERS = {"User-Agent": "bitcoin-private-blockspace/1.0 (research)"}
 TIMEOUT = 30
 
