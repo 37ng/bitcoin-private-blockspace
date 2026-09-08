@@ -1,6 +1,5 @@
 # fetch data from mempool.space(ms)
 
-import argparse
 import json
 from pathlib import Path
 from datetime import datetime, timezone
@@ -14,6 +13,26 @@ MAX_PAGE_LENGTH = 50
 TIMEOUT = 30
 HEADERS = {"User-Agent": "bitcoin-private-blockspace/1.0 (research)"}
 DATA_DIR = Path(__file__).parent / "data"
+
+
+def latest_data_month() -> str:
+	months = []
+	for path in DATA_DIR.glob("*.json"):
+		try:
+			datetime.strptime(path.stem, "%Y-%m")
+		except ValueError:
+			continue
+		months.append(path.stem)
+	if not months:
+		raise ValueError(f"no monthly JSON files in {DATA_DIR}")
+	return max(months)
+
+# complete month is a month that past its last day
+def latest_complete_month(now: datetime | None = None) -> str:
+	if now is None:
+		now = datetime.now(timezone.utc)
+	return previous_month(now.strftime("%Y-%m"))
+
 
 def next_month(month: str) -> str:
 	year, month_number = map(int, month.split("-"))
@@ -53,25 +72,18 @@ def fetch_ms(month: str) -> None:
 		if not page_data:
 			print()
 			return
-		(DATA_DIR / f"{month}.json").write_text(json.dumps(data, indent=2) + "\n")
 		data.extend(page_data)
+		(DATA_DIR / f"{month}.json").write_text(json.dumps(data, indent=2) + "\n")
 		page += 1
 
 
-def main() -> None:
-	parser = argparse.ArgumentParser()
-
-	# from/to are inclusive
-	parser.add_argument("--from", dest="from_month", required=True)
-	parser.add_argument("--to", dest="to_month", required=True)
-	args = parser.parse_args()
-
-	month = args.to_month
-	while month >= args.from_month:
+def fetch_ms_range(from_month: str, to_month: str) -> None:
+	month = to_month
+	while month >= from_month:
 		fetch_ms(month)
 		month = previous_month(month)
 
 
-if __name__ == "__main__":
-	main()
+def fetch_missing_ms() -> None:
+	fetch_ms_range(next_month(latest_data_month()), latest_complete_month())
 

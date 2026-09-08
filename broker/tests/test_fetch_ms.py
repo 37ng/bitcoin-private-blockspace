@@ -16,6 +16,21 @@ def test_previous_month_rolls_over_january():
 	assert fetch_ms.previous_month("2024-01") == "2023-12"
 
 
+def test_latest_data_month_uses_latest_monthly_json_file(tmp_path):
+	(tmp_path / "2024-01.json").write_text("[]")
+	(tmp_path / "2024-10.json").write_text("[]")
+	(tmp_path / "notes.json").write_text("[]")
+
+	with patch.object(fetch_ms, "DATA_DIR", tmp_path):
+		assert fetch_ms.latest_data_month() == "2024-10"
+
+
+def test_latest_complete_month_excludes_current_month():
+	now = fetch_ms.datetime(2026, 9, 7, tzinfo=fetch_ms.timezone.utc)
+
+	assert fetch_ms.latest_complete_month(now) == "2026-08"
+
+
 @patch("fetch_ms.requests.get")
 @patch("fetch_ms.print")
 @patch("fetch_ms.time.sleep")
@@ -49,10 +64,18 @@ def test_fetch_ms_combines_pages_until_empty_response(
 
 
 @patch("fetch_ms.fetch_ms")
-def test_main_fetches_months_from_to(mock_fetch_ms):
-	with patch.object(
-		sys, "argv", ["fetch_ms.py", "--from", "2023-01", "--to", "2023-02"]
-	):
-		fetch_ms.main()
+def test_fetch_ms_range_fetches_months_from_to(mock_fetch_ms):
+	fetch_ms.fetch_ms_range("2023-01", "2023-02")
 
 	assert mock_fetch_ms.call_args_list == [call("2023-02"), call("2023-01")]
+
+
+@patch("fetch_ms.fetch_ms_range")
+@patch("fetch_ms.latest_complete_month", return_value="2024-02")
+@patch("fetch_ms.latest_data_month", return_value="2023-12")
+def test_fetch_missing_ms_fetches_after_latest_data_through_complete_month(
+	mock_latest_data_month, mock_latest_complete_month, mock_fetch_ms_range
+):
+	fetch_ms.fetch_missing_ms()
+
+	assert mock_fetch_ms_range.call_args_list == [call("2024-01", "2024-02")]
