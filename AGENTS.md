@@ -1,5 +1,14 @@
 # workflow
 
+## commands
+
+run files in venv
+
+```
+.venv/bin/python main.py
+```
+
+
 ## git worktrees
 
 when asked to work on git worktrees
