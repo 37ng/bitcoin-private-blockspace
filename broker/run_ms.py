@@ -1,60 +1,67 @@
 import argparse
-import os
-import sys
+import json
+from collections import defaultdict
+from pathlib import Path
 
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "utils"))
+import requests
 
-import bqio
-import config
-
-SQL_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sql")
-
-STEPS = [
-    ("ms_monthly", "out-of-band spend per month"),
-    ("ms_by_pool", "out-of-band spend per pool"),
-]
+POOL_URL = "https://raw.githubusercontent.com/mempool/mining-pools/master/pools-v2.json"
+DATA_DIR = Path(__file__).parent / "data"
+HEADERS = {"User-Agent": "bitcoin-private-blockspace/1.0 (research)"}
+TIMEOUT = 30
 
 
-def sql_name(step):
-    return os.path.join(SQL_DIR, f"{step}.sql")
+def fetch_pool_names(url: str = POOL_URL) -> dict[int, str]:
+    response = requests.get(url, headers=HEADERS, timeout=TIMEOUT)
+    response.raise_for_status()
+    payload = response.json()
+    if isinstance(payload, dict):
+        entries = [dict(entry, name=entry.get("name") or name)
+                   for name, entry in payload.items()
+                   if isinstance(entry, dict)]
+    elif isinstance(payload, list):
+        entries = payload
+    else:
+        raise ValueError("pool list must be an object or array")
+    return {entry["id"]: entry["name"] for entry in entries
+            if isinstance(entry.get("id"), int)
+            and not isinstance(entry.get("id"), bool)
+            and isinstance(entry.get("name"), str)}
 
 
-def dry_run(steps):
-    total = 0
-    for name, what in steps:
-        try:
-            scanned = bqio.dry_run(bqio.render(sql_name(name)))
-        except Exception as exc:  # a step whose input table is not built yet
-            first = str(exc).split("\n")[0]
-            print(f"  {name:34s} needs an earlier step ({first[:60]})")
+def aggregate_pool_fees(data_dir: Path, pool_names: dict[int, str]) -> dict[str, dict[str, int]]:
+    totals = defaultdict(lambda: {"effectiveFee": 0, "feeDelta": 0,
+                                  "totalTxFee": 0})
+    for path in sorted(data_dir.glob("*.json")):
+        content = path.read_text()
+        if not content.strip():
             continue
-        if scanned is None:
-            print(f"  {name:34s} scan size unavailable")
-            continue
-        total += scanned
-        print(f"  {name:34s} {bqio.human_bytes(scanned):>10s}  "
-              f"${bqio.usd(scanned):6.2f}  {what}")
-    print(f"  {'total':34s} {bqio.human_bytes(total):>10s}  "
-          f"${bqio.usd(total):6.2f}")
-    return total
+        records = json.loads(content)
+        for record in records:
+            if not str(record.get("status", "")).startswith("completed"):
+                continue
+            pool_name = pool_names.get(record.get("minedByPoolUniqueId"))
+            if pool_name is None:
+                continue
+            effective_fee = record.get("effectiveFee") or 0
+            fee_delta = record.get("feeDelta") or 0
+            totals[pool_name]["effectiveFee"] += effective_fee
+            totals[pool_name]["feeDelta"] += fee_delta
+            totals[pool_name]["totalTxFee"] += effective_fee + fee_delta
+    return dict(totals)
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__,
-                                     formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--dry-run", action="store_true",
-                        help="report bytes per step and stop")
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--data-dir", type=Path, default=DATA_DIR)
+    parser.add_argument("--pool-url", default=POOL_URL)
     args = parser.parse_args()
 
-    bqio.ensure_dataset(config.MS_DATASET)
-
-    if args.dry_run:
-        dry_run(STEPS)
-        return
-
-    for name, what in STEPS:
-        print(f"\n[{name}] {what}")
-        bqio.run_file(sql_name(name), label=name)
+    totals = aggregate_pool_fees(args.data_dir, fetch_pool_names(args.pool_url))
+    ordered = dict(sorted(totals.items(),
+                          key=lambda item: item[1]["totalTxFee"],
+                          reverse=True))
+    print(json.dumps(ordered, indent=2))
 
 
 if __name__ == "__main__":
