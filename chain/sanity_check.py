@@ -1,4 +1,3 @@
-import argparse
 import os
 import sys
 
@@ -72,20 +71,3 @@ def attribution_quality():
         print("(a big count here is a missing tag in pools.py)")
         for r in rows:
             print(f"  {r['blocks']:>5d}  {r['coinbase_text']}")
-
-
-def main():
-    parser = argparse.ArgumentParser(description=__doc__,
-                                     formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--top", type=int, default=12,
-                        help="pools listed per month")
-    parser.add_argument("--months", type=int, default=12)
-    parser.add_argument("--all", action="store_true", help="every month")
-    args = parser.parse_args()
-
-    attribution_quality()
-    monthly_shares(None if args.all else args.months, args.top)
-
-
-if __name__ == "__main__":
-    main()

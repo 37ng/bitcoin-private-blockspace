@@ -23,7 +23,7 @@ END_DATE = os.environ.get("END_DATE", "2100-01-01")
 
 # The source dataset is partitioned by month, and the pipeline aggregates by
 # month. So a run should cover exactly one month: set MONTH (env var) or pass
-# `--month YYYY-MM` to `run_pipeline.py`.
+# `--month YYYY-MM` to `main.py run-pipeline`.
 MONTH = os.environ.get("MONTH")
 
 

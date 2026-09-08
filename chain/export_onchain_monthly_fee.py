@@ -1,4 +1,3 @@
-import argparse
 import json
 import os
 import sys
@@ -87,21 +86,13 @@ def report(months):
     print(f"{'total':<9}{'':>9}{'':>12}{total:>14.4f}")
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--out", default=os.path.join(config.DATA_DIR, FILENAME))
-    args = parser.parse_args()
-
+def export(out_path):
     fresh = build(monthly_rows())
     if not fresh:
         print("the onchain_monthly_fee table is empty; nothing to publish")
         return 1
 
-    months = merge(read(args.out), fresh)
+    months = merge(read(out_path), fresh)
     report(months)
-    write(payload(months), args.out)
+    write(payload(months), out_path)
     return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

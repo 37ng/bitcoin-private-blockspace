@@ -1,4 +1,3 @@
-import argparse
 import datetime
 import decimal
 import json
@@ -10,7 +9,6 @@ import pandas as pd
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "utils"))
 
 import bqio
-import config
 
 TABLES = {
     "monthly_summary": "SELECT * FROM `${dst}.monthly_summary` ORDER BY block_month",
@@ -219,8 +217,8 @@ def write_summary(out_dir, monthly, sensitivity_grid, pools):
         "- A number that moves by an order of magnitude across the threshold "
         "grid is a statement about the cut-offs, not about the chain.",
         "- Per-pool rows depend on coinbase tag attribution. Run "
-        "`sanity_check.py` and compare against a public hashrate chart before "
-        "quoting any of them.",
+        "`main.py sanity-check` and compare against a public hashrate chart "
+        "before quoting any of them.",
     ]
 
     path = os.path.join(out_dir, "summary.md")
@@ -272,20 +270,3 @@ def merge_into(out_dir, fresh, replace=False):
 
 def export_month(out_dir, replace=False):
     return merge_into(out_dir, fetch(), replace=replace)
-
-
-def main():
-    parser = argparse.ArgumentParser(description=__doc__,
-                                     formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--out", default=config.OUT_DIR)
-    parser.add_argument("--replace", action="store_true",
-                        help="ignore what is already in --out and write only "
-                             "the months the working dataset holds")
-    args = parser.parse_args()
-
-    print(f"writing to {args.out}/")
-    export_month(args.out, replace=args.replace)
-
-
-if __name__ == "__main__":
-    main()

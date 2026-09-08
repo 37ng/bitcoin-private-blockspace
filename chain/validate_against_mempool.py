@@ -1,4 +1,3 @@
-import argparse
 import json
 import os
 import random
@@ -60,23 +59,15 @@ def sample_blocks(sample, sensitivity_column):
     return rows
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__,
-                                     formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--sample", type=int, default=50)
-    parser.add_argument("--sleep", type=float, default=1.5,
-                        help="seconds between API calls")
-    parser.add_argument("--sensitivity", choices=["30", "50", "70"], default="50")
-    args = parser.parse_args()
-
-    column = f"low_fee_{args.sensitivity}"
-    blocks = sample_blocks(args.sample, column)
+def validate(sample, sleep, sensitivity):
+    column = f"low_fee_{sensitivity}"
+    blocks = sample_blocks(sample, column)
     if not blocks:
         print(f"no blocks with {column} above height {MIN_AUDITED_HEIGHT}")
         return
 
     print(f"checking {len(blocks)} blocks against mempool.space "
-          f"(sensitivity 0.{args.sensitivity})\n")
+          f"(sensitivity 0.{sensitivity})\n")
 
     audited = 0
     total_low_fee = 0
@@ -85,7 +76,7 @@ def main():
     blocks_with_any_overlap = 0
 
     for block in blocks:
-        data = fetch_audit(block["block_hash"], args.sleep)
+        data = fetch_audit(block["block_hash"], sleep)
         if not data:
             print(f"  {block['block_number']}  no audit data")
             continue
@@ -123,7 +114,3 @@ def main():
     print("Transactions in acceleratedTxs were bought out of band through a "
           "public service: they confirm the mechanism, and they are the part "
           "of the count that is not invisible.")
-
-
-if __name__ == "__main__":
-    main()
