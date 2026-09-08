@@ -1,4 +1,4 @@
--- Out-of-band spend per pool, using this project's own attribution.
+-- Off-chain spend per pool, using this project's own attribution.
 --
 -- Requires `${dst}.blocks` from step 02, so run it after the main pipeline.
 -- The API also carries `mined_by_pool_unique_id`, but that is mempool.space's

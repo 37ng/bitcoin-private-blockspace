@@ -16,7 +16,7 @@ GROUPS = [
         ("fetch-ms", "broker/fetch_ms.py",
          "download acceleration history from mempool.space"),
         ("run-ms", "broker/run_ms.py",
-         "build the out-of-band spend tables"),
+         "build the off-chain spend tables"),
     ]),
     ("chain", [
         ("run-pipeline", "chain/run_pipeline.py",
