@@ -84,11 +84,9 @@ def run_ms(module, argv):
     parser.add_argument("--pool-url", default=module.POOL_URL)
     parser.add_argument("--month-out", type=Path,
                         default=module.MONTH_OUTPUT_PATH)
-    parser.add_argument("--pool-out", type=Path,
-                        default=module.POOL_OUTPUT_PATH)
     args = parser.parse_args(argv)
 
-    module.run(args.data_dir, args.pool_url, args.month_out, args.pool_out)
+    module.run(args.data_dir, args.pool_url, args.month_out)
 
 
 def run_pipeline(module, argv):

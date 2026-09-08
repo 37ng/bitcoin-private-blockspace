@@ -28,20 +28,11 @@ def test_aggregate_pool_fees_reads_every_month(tmp_path):
          "effectiveFee": 300, "feeDelta": 75},
     ]))
 
-    assert run_ms.aggregate_pool_fees(tmp_path, {44: "AntPool"}) == (
-        {
-            "2023-12": {"pools": {}, "sum": 0},
-            "2024-01": {"pools": {"AntPool": 25}, "sum": 25},
-            "2024-02": {"pools": {"AntPool": 150}, "sum": 150},
-        },
-        {
-            "AntPool": {
-                "months": {"2023-12": 0, "2024-01": 25,
-                           "2024-02": 150},
-                "sum": 175,
-            },
-        },
-    )
+    assert run_ms.aggregate_pool_fees(tmp_path, {44: "AntPool"}) == {
+        "2023-12": {"pools": {}, "sum": 0},
+        "2024-01": {"pools": {"AntPool": 25}, "sum": 25},
+        "2024-02": {"pools": {"AntPool": 150}, "sum": 150},
+    }
 
 
 def test_fetch_pool_names_uses_requested_url(monkeypatch):
@@ -66,37 +57,26 @@ def test_main_parses_run_ms_arguments():
     calls = []
     module = SimpleNamespace(DATA_DIR=Path("default"), POOL_URL="default-url",
                              MONTH_OUTPUT_PATH=Path("months.json"),
-                             POOL_OUTPUT_PATH=Path("pools.json"),
                              run=lambda *args: calls.append(args))
 
     main.run_ms(module, ["--data-dir", "custom", "--pool-url", "new-url",
-                         "--month-out", "by-month.json", "--pool-out",
-                         "by-pool.json"])
+                         "--month-out", "by-month.json"])
 
-    assert calls == [(Path("custom"), "new-url", Path("by-month.json"),
-                      Path("by-pool.json"))]
+    assert calls == [(Path("custom"), "new-url", Path("by-month.json"))]
 
 
-def test_run_writes_both_json_views(tmp_path, monkeypatch):
+def test_run_writes_monthly_json(tmp_path, monkeypatch):
     monkeypatch.setattr(run_ms, "fetch_pool_names",
                         lambda _url: {44: "AntPool", 111: "Foundry USA"})
     monkeypatch.setattr(run_ms, "aggregate_pool_fees",
-                        lambda _dir, _names: (
-                            {"2024-01": {"pools": {"Foundry USA": 20,
-                                                    "AntPool": 5},
-                                         "sum": 25}},
-                            {"Foundry USA": {"months": {"2024-01": 20},
-                                             "sum": 20},
-                             "AntPool": {"months": {"2024-01": 5},
-                                         "sum": 5}},
-                        ))
+                        lambda _dir, _names: {
+                            "2024-01": {"pools": {"Foundry USA": 20,
+                                                   "AntPool": 5},
+                                        "sum": 25},
+                        })
     month_output_path = tmp_path / "mempool-space-by-month.json"
-    pool_output_path = tmp_path / "mempool-space-by-pool.json"
 
-    run_ms.run(tmp_path, "pool-url", month_output_path, pool_output_path)
+    run_ms.run(tmp_path, "pool-url", month_output_path)
 
     assert json.loads(month_output_path.read_text())["2024-01"]["sum"] == 25
-    assert list(json.loads(pool_output_path.read_text())) == ["Foundry USA",
-                                                              "AntPool"]
     assert month_output_path.read_text().endswith("\n")
-    assert pool_output_path.read_text().endswith("\n")

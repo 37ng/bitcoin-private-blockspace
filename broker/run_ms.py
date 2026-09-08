@@ -10,7 +10,6 @@ DATA_DIR = Path(__file__).parent / "data"
 SITE_DATA_DIR = (Path(__file__).parents[2] / "37ng.github.io" / "src" /
                  "posts" / "bitcoin" / "data")
 MONTH_OUTPUT_PATH = SITE_DATA_DIR / "mempool-space-by-month.json"
-POOL_OUTPUT_PATH = SITE_DATA_DIR / "mempool-space-by-pool.json"
 HEADERS = {"User-Agent": "bitcoin-private-blockspace/1.0 (research)"}
 TIMEOUT = 30
 
@@ -25,11 +24,6 @@ PoolNamesResponse: TypeAlias = dict[str, PoolEntry] | list[PoolEntry]
 
 class MonthlyFeeDeltas(TypedDict):
     pools: dict[str, int]
-    sum: int
-
-
-class PoolFeeDeltas(TypedDict):
-    months: dict[str, int]
     sum: int
 
 
@@ -58,7 +52,7 @@ def fetch_pool_names(url: str = POOL_URL) -> dict[int, str]:
 def aggregate_pool_fees(
         data_dir: Path,
         pool_names: dict[int, str],
-) -> tuple[dict[str, MonthlyFeeDeltas], dict[str, PoolFeeDeltas]]:
+) -> dict[str, MonthlyFeeDeltas]:
     monthly_totals: dict[str, defaultdict[str, int]] = {}
     for path in sorted(data_dir.glob("*.json")):
         month = path.stem
@@ -77,31 +71,15 @@ def aggregate_pool_fees(
             monthly_totals[month][pool_name] += fee_delta
 
     by_month: dict[str, MonthlyFeeDeltas] = {}
-    pool_totals: defaultdict[str, int] = defaultdict(int)
     for month, totals in monthly_totals.items():
         pools = dict(sorted(totals.items(), key=lambda item: item[1],
                             reverse=True))
         by_month[month] = {"pools": pools, "sum": sum(pools.values())}
-        for pool_name, fee_delta in pools.items():
-            pool_totals[pool_name] += fee_delta
-
-    by_pool: dict[str, PoolFeeDeltas] = {}
-    for pool_name, total in sorted(pool_totals.items(),
-                                   key=lambda item: item[1], reverse=True):
-        by_pool[pool_name] = {
-            "months": {month: totals.get(pool_name, 0)
-                       for month, totals in monthly_totals.items()},
-            "sum": total,
-        }
-    return by_month, by_pool
+    return by_month
 
 
 def run(data_dir: Path = DATA_DIR, pool_url: str = POOL_URL,
-        month_output_path: Path = MONTH_OUTPUT_PATH,
-        pool_output_path: Path = POOL_OUTPUT_PATH) -> None:
-    by_month, by_pool = aggregate_pool_fees(data_dir,
-                                            fetch_pool_names(pool_url))
+        month_output_path: Path = MONTH_OUTPUT_PATH) -> None:
+    by_month = aggregate_pool_fees(data_dir, fetch_pool_names(pool_url))
     month_output_path.write_text(json.dumps(by_month, indent=2) + "\n")
-    pool_output_path.write_text(json.dumps(by_pool, indent=2) + "\n")
     print(f"wrote {month_output_path}")
-    print(f"wrote {pool_output_path}")
