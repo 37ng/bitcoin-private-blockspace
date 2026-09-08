@@ -3,6 +3,7 @@ import importlib.util
 import os
 import sys
 from datetime import datetime
+from pathlib import Path
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PROG = os.path.basename(__file__)
@@ -74,6 +75,20 @@ def fetch_ms(module, argv):
         module.fetch_ms_range(args.from_month, args.to_month)
     else:
         module.fetch_missing_ms()
+
+
+def run_ms(module, argv):
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--data-dir", type=Path,
+                        default=module.DATA_DIR)
+    parser.add_argument("--pool-url", default=module.POOL_URL)
+    parser.add_argument("--month-out", type=Path,
+                        default=module.MONTH_OUTPUT_PATH)
+    parser.add_argument("--pool-out", type=Path,
+                        default=module.POOL_OUTPUT_PATH)
+    args = parser.parse_args(argv)
+
+    module.run(args.data_dir, args.pool_url, args.month_out, args.pool_out)
 
 
 def run_pipeline(module, argv):
@@ -156,6 +171,7 @@ def validate_mempool(module, argv):
 
 HANDLERS = {
     "fetch-ms": fetch_ms,
+    "run-ms": run_ms,
     "run-pipeline": run_pipeline,
     "effective-fee": effective_fee,
     "export-results": export_results,
@@ -180,6 +196,10 @@ def load(script):
     sys.path.insert(0, os.path.dirname(script))
     module_name = os.path.splitext(os.path.basename(script))[0]
     spec = importlib.util.spec_from_file_location(module_name, script)
+
+    if spec is None or spec.loader is None:
+        raise ImportError(f"cannot load module from {script}")
+
     module = importlib.util.module_from_spec(spec)
     sys.modules[module_name] = module
     spec.loader.exec_module(module)
