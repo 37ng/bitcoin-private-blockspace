@@ -1,6 +1,8 @@
+import argparse
 import importlib.util
 import os
 import sys
+from datetime import datetime
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PROG = os.path.basename(__file__)
@@ -11,8 +13,6 @@ GROUPS = [
          "download acceleration history from mempool.space"),
         ("run-ms", "broker/run_ms.py",
          "build the out-of-band spend tables"),
-        ("export-ms", "broker/export_ms.py",
-         "publish the monthly out-of-band spend file"),
     ]),
     ("chain", [
         ("run-pipeline", "chain/run_pipeline.py",
@@ -39,6 +39,42 @@ GROUPS = [
 COMMANDS = {name: path for _group, items in GROUPS for name, path, _what in items}
 
 
+def month(value):
+    try:
+        datetime.strptime(value, "%Y-%m")
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"{value} is not a YYYY-MM month")
+    return value
+
+
+def fetch_ms(module, argv):
+    parser = argparse.ArgumentParser(
+        description="with no flag, fetch every month after the newest file in "
+                    "broker/data, up to the last complete month")
+    parser.add_argument("--month", type=month, metavar="YYYY-MM",
+                        help="fetch this month alone")
+    parser.add_argument("--from", dest="from_month", type=month,
+                        metavar="YYYY-MM", help="fetch this month and later")
+    parser.add_argument("--to", dest="to_month", type=month, metavar="YYYY-MM",
+                        help="stop after this month")
+    args = parser.parse_args(argv)
+
+    if args.month and (args.from_month or args.to_month):
+        parser.error("--month does not go with --from or --to")
+    if bool(args.from_month) != bool(args.to_month):
+        parser.error("--from and --to go together")
+
+    if args.month:
+        module.fetch_ms(args.month)
+    elif args.from_month:
+        module.fetch_ms_range(args.from_month, args.to_month)
+    else:
+        module.fetch_missing_ms()
+
+
+HANDLERS = {"fetch-ms": fetch_ms}
+
+
 def usage(stream=sys.stdout):
     print(f"usage: {PROG} <command> [args]\n", file=stream)
     for group, items in GROUPS:
@@ -50,16 +86,23 @@ def usage(stream=sys.stdout):
           file=stream)
 
 
-def run(name, argv):
-    script = os.path.join(ROOT, COMMANDS[name])
+def load(script):
     sys.path.insert(0, os.path.dirname(script))
-    sys.argv = [f"{PROG} {name}"] + argv
-
     module_name = os.path.splitext(os.path.basename(script))[0]
     spec = importlib.util.spec_from_file_location(module_name, script)
     module = importlib.util.module_from_spec(spec)
     sys.modules[module_name] = module
     spec.loader.exec_module(module)
+    return module
+
+
+def run(name, argv):
+    script = os.path.join(ROOT, COMMANDS[name])
+    sys.argv = [f"{PROG} {name}"] + argv
+    module = load(script)
+    handler = HANDLERS.get(name)
+    if handler:
+        return handler(module, argv)
     return module.main()
 
 
