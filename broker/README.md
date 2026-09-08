@@ -1,1 +1,1 @@
-currently only has mempool.space data.
+Currently, it only has mempool.space data. The first transactions are seen in 2023-07, but 2023-07 to 2023-11 don't have enough data, so we start from 2024-01.
