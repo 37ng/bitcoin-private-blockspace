@@ -1,0 +1,36 @@
+[
+  {
+    "txid": "70f637ddabee2336c92f4b9f64eb41873a31a6c3478c41e7f63069043246061c",
+    "status": "failed",
+    "added": 1689753154,
+    "lastUpdated": 1782884837,
+    "effectiveFee": 108643,
+    "effectiveVsize": 21642,
+    "feeDelta": 500000,
+    "blockHash": null,
+    "blockHeight": null,
+    "bidBoost": 0,
+    "boostVersion": "v1",
+    "pools": [],
+    "minedByPoolUniqueId": null,
+    "canceled": 0
+  },
+  {
+    "txid": "f9d7b882724fca6a71afbcd93d234d30d25d713197a2154cf19378e35620327b",
+    "status": "completed",
+    "added": 1689673877,
+    "lastUpdated": 1782884837,
+    "effectiveFee": 789,
+    "effectiveVsize": 140,
+    "feeDelta": 500000,
+    "blockHash": "00000000000000000002fb4deb27dde2c49c8c73ec6495d1e33580938fdeb3b9",
+    "blockHeight": 799223,
+    "bidBoost": 51,
+    "boostVersion": "v1",
+    "pools": [
+      111
+    ],
+    "minedByPoolUniqueId": 111,
+    "canceled": 0
+  }
+]
