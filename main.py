@@ -3,6 +3,7 @@ import importlib.util
 import os
 import sys
 from datetime import datetime
+from pathlib import Path
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PROG = os.path.basename(__file__)
@@ -74,6 +75,16 @@ def fetch_ms(module, argv):
         module.fetch_ms_range(args.from_month, args.to_month)
     else:
         module.fetch_missing_ms()
+
+
+def run_ms(module, argv):
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--data-dir", type=Path,
+                        default=module.DATA_DIR)
+    parser.add_argument("--pool-url", default=module.POOL_URL)
+    args = parser.parse_args(argv)
+
+    module.run(args.data_dir, args.pool_url)
 
 
 def run_pipeline(module, argv):
@@ -156,6 +167,7 @@ def validate_mempool(module, argv):
 
 HANDLERS = {
     "fetch-ms": fetch_ms,
+    "run-ms": run_ms,
     "run-pipeline": run_pipeline,
     "effective-fee": effective_fee,
     "export-results": export_results,

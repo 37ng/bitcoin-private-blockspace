@@ -1,4 +1,3 @@
-import argparse
 import json
 from collections import defaultdict
 from pathlib import Path
@@ -51,18 +50,9 @@ def aggregate_pool_fees(data_dir: Path, pool_names: dict[int, str]) -> dict[str,
     return dict(totals)
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--data-dir", type=Path, default=DATA_DIR)
-    parser.add_argument("--pool-url", default=POOL_URL)
-    args = parser.parse_args()
-
-    totals = aggregate_pool_fees(args.data_dir, fetch_pool_names(args.pool_url))
+def run(data_dir: Path = DATA_DIR, pool_url: str = POOL_URL) -> None:
+    totals = aggregate_pool_fees(data_dir, fetch_pool_names(pool_url))
     ordered = dict(sorted(totals.items(),
                           key=lambda item: item[1]["totalTxFee"],
                           reverse=True))
     print(json.dumps(ordered, indent=2))
-
-
-if __name__ == "__main__":
-    main()

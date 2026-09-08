@@ -1,9 +1,13 @@
 import json
 import os
 import sys
+from pathlib import Path
+from types import SimpleNamespace
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
+import main
 import run_ms
 
 
@@ -47,3 +51,14 @@ def test_fetch_pool_names_uses_requested_url(monkeypatch):
 
     monkeypatch.setattr(run_ms.requests, "get", get)
     assert run_ms.fetch_pool_names() == {111: "Foundry USA"}
+
+
+def test_main_parses_run_ms_arguments():
+    calls = []
+    module = SimpleNamespace(DATA_DIR=Path("default"), POOL_URL="default-url",
+                             run=lambda data_dir, pool_url:
+                             calls.append((data_dir, pool_url)))
+
+    main.run_ms(module, ["--data-dir", "custom", "--pool-url", "new-url"])
+
+    assert calls == [(Path("custom"), "new-url")]
