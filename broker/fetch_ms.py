@@ -51,9 +51,9 @@ def fetch_ms(month: str) -> None:
 		time.sleep(CALL_INTERVAL_SEC)
 		page_data = response.json()
 		if not page_data:
-			(DATA_DIR / f"{month}.json").write_text(json.dumps(data, indent=2) + "\n")
 			print()
 			return
+		(DATA_DIR / f"{month}.json").write_text(json.dumps(data, indent=2) + "\n")
 		data.extend(page_data)
 		page += 1
 
