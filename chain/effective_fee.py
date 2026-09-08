@@ -1,4 +1,3 @@
-import argparse
 import itertools
 import json
 import os
@@ -158,21 +157,3 @@ def run(source, writer, chunk_blocks=None, flush_rows=None, verbose=True):
     if verbose:
         print(f"    wrote {writer.written} package rows", flush=True)
     return writer.written
-
-
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--chunk-blocks", type=int,
-                        default=config.UNIONFIND_CHUNK_BLOCKS)
-    parser.add_argument("--sqlite", help="run against a local database instead")
-    args = parser.parse_args()
-
-    if args.sqlite:
-        source, writer = SqliteSource(args.sqlite), ListWriter()
-    else:
-        source, writer = BigQuerySource(), BigQueryWriter()
-    run(source, writer, chunk_blocks=args.chunk_blocks)
-
-
-if __name__ == "__main__":
-    main()

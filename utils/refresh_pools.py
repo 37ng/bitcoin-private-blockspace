@@ -79,7 +79,7 @@ def main():
     print(f"wrote {path}")
     print(f"{with_id} pool ids available to read the acceleration "
           f"`pools` array")
-    print("re-run sql/02_blocks.sql, then sanity_check.py")
+    print("re-run sql/02_blocks.sql, then main.py sanity-check")
 
 
 if __name__ == "__main__":

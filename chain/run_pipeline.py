@@ -1,4 +1,3 @@
-import argparse
 import os
 import sys
 
@@ -65,19 +64,19 @@ def sql_name(step):
     return os.path.join(SQL_DIR, f"{step}.sql")
 
 
-def select_steps(args):
+def select_steps(only=None, from_step=None):
     names = [s[0] for s in STEPS]
-    if args.only:
-        wanted = set(args.only.split(","))
+    if only:
+        wanted = set(only.split(","))
         unknown = wanted - set(names)
         if unknown:
             sys.exit(f"unknown step(s): {', '.join(sorted(unknown))}")
         return [s for s in STEPS if s[0] in wanted]
     start = 0
-    if getattr(args, "from_step", None):
-        if args.from_step not in names:
-            sys.exit(f"unknown step: {args.from_step}")
-        start = names.index(args.from_step)
+    if from_step:
+        if from_step not in names:
+            sys.exit(f"unknown step: {from_step}")
+        start = names.index(from_step)
     return STEPS[start:]
 
 
@@ -139,30 +138,16 @@ def headline():
     print("  read low_fee_sensitivity before quoting any of this")
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__,
-                                     formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--dry-run", action="store_true",
-                        help="report bytes per step and stop")
-    parser.add_argument("--month", metavar="YYYY-MM",
-                        help="run one month end to end, then merge it into out/")
-    parser.add_argument("--from", dest="from_step", metavar="STEP",
-                        help="start at this step")
-    parser.add_argument("--only", metavar="STEP[,STEP]",
-                        help="run only these steps")
-    parser.add_argument("--yes", action="store_true",
-                        help="do not ask before spending")
-    parser.add_argument("--skip-checks", action="store_true")
-    args = parser.parse_args()
-
-    if args.month:
-        config.set_month(args.month)
+def run(month=None, only=None, from_step=None, dry=False, yes=False,
+        skip_checks=False):
+    if month:
+        config.set_month(month)
         print(f"month run: {config.START_DATE} .. {config.END_DATE}")
 
-    steps = select_steps(args)
+    steps = select_steps(only, from_step)
     bqio.ensure_dataset()
 
-    if args.dry_run:
+    if dry:
         dry_run(steps)
         return
 
@@ -171,7 +156,7 @@ def main():
         estimate = bqio.dry_run(bqio.render(sql_name("01_tx_base")))
         print(f"step 01 will scan {bqio.human_bytes(estimate)} "
               f"(about ${bqio.usd(estimate):.2f})")
-        if not args.yes and not bqio.confirm("run it?"):
+        if not yes and not bqio.confirm("run it?"):
             sys.exit("stopped; nothing was run")
 
     for name, kind, what in steps:
@@ -182,16 +167,12 @@ def main():
             effective_fee.run(effective_fee.BigQuerySource(),
                               effective_fee.BigQueryWriter())
 
-    if not args.skip_checks:
+    if not skip_checks:
         run_checks()
     headline()
 
-    if args.month:
-        print(f"\nmerging {args.month} into {config.OUT_DIR}/")
+    if month:
+        print(f"\nmerging {month} into {config.OUT_DIR}/")
         export_results.export_month(config.OUT_DIR)
         print(f"\ndone. delete the BigQuery working dataset when ready:"
-              f"\n  python ../utils/delete_dataset.py")
-
-
-if __name__ == "__main__":
-    main()
+              f"\n  .venv/bin/python main.py delete-dataset")
