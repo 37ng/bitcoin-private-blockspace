@@ -192,6 +192,10 @@ def load(script):
     sys.path.insert(0, os.path.dirname(script))
     module_name = os.path.splitext(os.path.basename(script))[0]
     spec = importlib.util.spec_from_file_location(module_name, script)
+
+    if spec is None or spec.loader is None:
+        raise ImportError(f"cannot load module from {script}")
+
     module = importlib.util.module_from_spec(spec)
     sys.modules[module_name] = module
     spec.loader.exec_module(module)
