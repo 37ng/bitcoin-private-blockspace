@@ -1,0 +1,2037 @@
+[
+  {
+    "txid": "888bbc84414b139b902abaa8aa09eba1798430fbd4d8e74c45a3e02bd45ad40a",
+    "status": "completed",
+    "added": 1719762833,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 1883,
+    "effectiveVsize": 269,
+    "feeDelta": 4000,
+    "blockHash": "0000000000000000000074214ea1b6baea93edb40693fc8dd46cbe7eea576182",
+    "blockHeight": 850196,
+    "bidBoost": 0,
+    "boostVersion": "v2",
+    "pools": [
+      102,
+      112
+    ],
+    "minedByPoolUniqueId": null,
+    "canceled": 0
+  },
+  {
+    "txid": "4ed7e66f59638df961800035fe38052f6e363f54b2e1b2bc1cac78e70b85be99",
+    "status": "completed",
+    "added": 1719762426,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 7751,
+    "effectiveVsize": 1106,
+    "feeDelta": 30000,
+    "blockHash": "000000000000000000033c270ed9d800015dd7cbb6fe9d5f64bf03004c215e14",
+    "blockHeight": 850180,
+    "bidBoost": 0,
+    "boostVersion": "v2",
+    "pools": [
+      102,
+      112
+    ],
+    "minedByPoolUniqueId": null,
+    "canceled": 0
+  },
+  {
+    "txid": "eb1d5058b5f8ab5ecad14af6411043698e5d72110326ab765d9adc5c0dd94600",
+    "status": "completed",
+    "added": 1719761862,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 4676,
+    "effectiveVsize": 667,
+    "feeDelta": 14000,
+    "blockHash": "000000000000000000033c270ed9d800015dd7cbb6fe9d5f64bf03004c215e14",
+    "blockHeight": 850180,
+    "bidBoost": 0,
+    "boostVersion": "v2",
+    "pools": [
+      102,
+      112
+    ],
+    "minedByPoolUniqueId": null,
+    "canceled": 0
+  },
+  {
+    "txid": "c74cc7744d14ce064ae587da8331ae8343bae711fa64cdc0bbb7fbbc94e24b07",
+    "status": "completed",
+    "added": 1719761728,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 994,
+    "effectiveVsize": 142,
+    "feeDelta": 3000,
+    "blockHash": "0000000000000000000239383668be43156d494d1a47e83649c8e1ae6710d2c5",
+    "blockHeight": 850194,
+    "bidBoost": 0,
+    "boostVersion": "v2",
+    "pools": [
+      102,
+      112
+    ],
+    "minedByPoolUniqueId": null,
+    "canceled": 0
+  },
+  {
+    "txid": "660b59306b7c0f89e9285c37f288b18e4452f47fcc55992d6eff22dffc335a8a",
+    "status": "failed",
+    "added": 1719760439,
+    "lastUpdated": 1782884837,
+    "effectiveFee": 1778,
+    "effectiveVsize": 234,
+    "feeDelta": 4000,
+    "blockHash": null,
+    "blockHeight": null,
+    "bidBoost": 0,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102,
+      112
+    ],
+    "minedByPoolUniqueId": null,
+    "canceled": 0
+  },
+  {
+    "txid": "2480cbe9609e7c562dd7f74aaea2817654d91eb2f5b380d29f8a9191e7467da3",
+    "status": "completed",
+    "added": 1719752299,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 20424,
+    "effectiveVsize": 2898,
+    "feeDelta": 37500,
+    "blockHash": "000000000000000000009c4cc57cc9fcbd9e2a60515f46632ce67e5ee3694836",
+    "blockHeight": 850137,
+    "bidBoost": 0,
+    "boostVersion": "v2",
+    "pools": [
+      102,
+      112
+    ],
+    "minedByPoolUniqueId": null,
+    "canceled": 0
+  },
+  {
+    "txid": "c12e0a3ddead6ffccaa664deb80e978d29c6ac318504f40d8d495092ca77d90d",
+    "status": "completed",
+    "added": 1719752140,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 994,
+    "effectiveVsize": 142,
+    "feeDelta": 1875,
+    "blockHash": "0000000000000000000074214ea1b6baea93edb40693fc8dd46cbe7eea576182",
+    "blockHeight": 850196,
+    "bidBoost": 0,
+    "boostVersion": "v2",
+    "pools": [
+      102,
+      112
+    ],
+    "minedByPoolUniqueId": null,
+    "canceled": 0
+  },
+  {
+    "txid": "5bc6ae0ecbcd6d387d4f9190d37e3bc89cfbc0900d56489ac00cd9d49839ea2b",
+    "status": "completed",
+    "added": 1719749263,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 763,
+    "effectiveVsize": 110,
+    "feeDelta": 1200,
+    "blockHash": "00000000000000000001ebdd3c374fc2f3e7dfec421393b48219d762fd47a557",
+    "blockHeight": 850104,
+    "bidBoost": 20,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102,
+      112
+    ],
+    "minedByPoolUniqueId": 111,
+    "canceled": 0
+  },
+  {
+    "txid": "6c86e09a6fbb2b733669c7725edd88e7786909061cdf876164aafdf9cebf260f",
+    "status": "completed",
+    "added": 1719741486,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 784,
+    "effectiveVsize": 113,
+    "feeDelta": 1200,
+    "blockHash": "000000000000000000003738856bd62683823118c1485642c0f4df1b9f65e32b",
+    "blockHeight": 850209,
+    "bidBoost": 685,
+    "boostVersion": "v2",
+    "pools": [
+      102,
+      112
+    ],
+    "minedByPoolUniqueId": 102,
+    "canceled": 0
+  },
+  {
+    "txid": "13f768f28ad0151d93389610db98e75acf6e95fcbd50bab5201a4ed5bab3d789",
+    "status": "completed",
+    "added": 1719648748,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 1168,
+    "effectiveVsize": 141,
+    "feeDelta": 1875,
+    "blockHash": "000000000000000000022fc1bf738d47b76d4aa5e01c4b6160643cf9d357cfa7",
+    "blockHeight": 849927,
+    "bidBoost": 0,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102,
+      112
+    ],
+    "minedByPoolUniqueId": 112,
+    "canceled": 0
+  },
+  {
+    "txid": "da9a28404ef8d7e02bccb1e9576c9c3a0b4ab2c03dcebf0726ab7f3c7281a3e4",
+    "status": "completed",
+    "added": 1719582848,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 895,
+    "effectiveVsize": 126,
+    "feeDelta": 1500,
+    "blockHash": "000000000000000000030e4deda342c9b61eecbedc1cecba628ce64f74b9d462",
+    "blockHeight": 849838,
+    "bidBoost": 239,
+    "boostVersion": "v2",
+    "pools": [
+      102,
+      112
+    ],
+    "minedByPoolUniqueId": 102,
+    "canceled": 0
+  },
+  {
+    "txid": "d0633fe33c0b6eef3eaefde8074defe7010cdf4ef5c9826b4afd39c5cc84f8c8",
+    "status": "completed",
+    "added": 1719582670,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 882,
+    "effectiveVsize": 122,
+    "feeDelta": 1350,
+    "blockHash": "000000000000000000030e4deda342c9b61eecbedc1cecba628ce64f74b9d462",
+    "blockHeight": 849838,
+    "bidBoost": 216,
+    "boostVersion": "v2",
+    "pools": [
+      102,
+      112
+    ],
+    "minedByPoolUniqueId": 102,
+    "canceled": 0
+  },
+  {
+    "txid": "927062927b811047d25a47261f4350aeed7243ca9a50dc8bd4a6c8d825913bf8",
+    "status": "completed",
+    "added": 1719581847,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 4007,
+    "effectiveVsize": 557,
+    "feeDelta": 6750,
+    "blockHash": "000000000000000000030e4deda342c9b61eecbedc1cecba628ce64f74b9d462",
+    "blockHeight": 849838,
+    "bidBoost": 1006,
+    "boostVersion": "v2",
+    "pools": [
+      102,
+      112
+    ],
+    "minedByPoolUniqueId": 102,
+    "canceled": 0
+  },
+  {
+    "txid": "0b1889eb1277cbacbf476e62c55472d0a05edca714c344b48a93d006c5880b79",
+    "status": "completed",
+    "added": 1719579623,
+    "lastUpdated": 1782884837,
+    "effectiveFee": 991,
+    "effectiveVsize": 136,
+    "feeDelta": 10000,
+    "blockHash": "00000000000000000001960c057db13383d47982e82872736cdb5c60364aece6",
+    "blockHeight": 849821,
+    "bidBoost": 385,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102,
+      112
+    ],
+    "minedByPoolUniqueId": 111,
+    "canceled": 0
+  },
+  {
+    "txid": "103e544f2d03bcdbb9263e546de8c5d3a6cd5d581f9729dfcd22c54247222906",
+    "status": "completed",
+    "added": 1719576959,
+    "lastUpdated": 1782884837,
+    "effectiveFee": 112,
+    "effectiveVsize": 110,
+    "feeDelta": 6000,
+    "blockHash": "00000000000000000001960c057db13383d47982e82872736cdb5c60364aece6",
+    "blockHeight": 849821,
+    "bidBoost": 1001,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102,
+      112
+    ],
+    "minedByPoolUniqueId": 111,
+    "canceled": 0
+  },
+  {
+    "txid": "5831a109480de446101fb3b87aee801104229d153652bb0acec2c988d64d31ba",
+    "status": "completed",
+    "added": 1719554694,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 767,
+    "effectiveVsize": 110,
+    "feeDelta": 1200,
+    "blockHash": "0000000000000000000014955960b4c05da5295a1f2e61af56398d3c5f51f47b",
+    "blockHeight": 849781,
+    "bidBoost": 113,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102,
+      112
+    ],
+    "minedByPoolUniqueId": 111,
+    "canceled": 0
+  },
+  {
+    "txid": "0731da62d84d2f2a147350620604044cc9ebc448864193cdddc11fb30c2e02d3",
+    "status": "completed",
+    "added": 1719521256,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 5468,
+    "effectiveVsize": 564,
+    "feeDelta": 11250,
+    "blockHash": "00000000000000000002855060bb26470c3c5a6cc6072f948a06ba57c9275b5c",
+    "blockHeight": 849726,
+    "bidBoost": 1883,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102,
+      112
+    ],
+    "minedByPoolUniqueId": 111,
+    "canceled": 0
+  },
+  {
+    "txid": "be92530d591a2282a69018599cc3ae640003e109cd9e430f36575a4af03ebfcd",
+    "status": "completed",
+    "added": 1719485159,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 1269,
+    "effectiveVsize": 141,
+    "feeDelta": 2250,
+    "blockHash": "0000000000000000000272287a3f9ccad49c681de3b62ce233a877257893aa80",
+    "blockHeight": 849673,
+    "bidBoost": 0,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102,
+      112
+    ],
+    "minedByPoolUniqueId": null,
+    "canceled": 0
+  },
+  {
+    "txid": "186307218188fafc769802fa867006fd18c248956d9a422dc3b31dd6cb3c4af9",
+    "status": "completed",
+    "added": 1719447550,
+    "lastUpdated": 1782884837,
+    "effectiveFee": 6467,
+    "effectiveVsize": 222,
+    "feeDelta": 7000,
+    "blockHash": "000000000000000000014e8a27b21636cd9b65e9df06ba0789bbbdd4458c6054",
+    "blockHeight": 849621,
+    "bidBoost": 0,
+    "boostVersion": "v2",
+    "pools": [
+      102,
+      112
+    ],
+    "minedByPoolUniqueId": null,
+    "canceled": 0
+  },
+  {
+    "txid": "5025fcc63fe5892acd72c2c65e8b4c82826a2acccb0810eadf77c395bb4baa79",
+    "status": "completed",
+    "added": 1719379583,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 979,
+    "effectiveVsize": 141,
+    "feeDelta": 1500,
+    "blockHash": "00000000000000000000e634cea9deb1cf8b173ce2f3c184d850c69c5a7e1130",
+    "blockHeight": 849520,
+    "bidBoost": 128,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102,
+      112
+    ],
+    "minedByPoolUniqueId": 111,
+    "canceled": 0
+  },
+  {
+    "txid": "630e44cddb851f0f64efb96696683d90e4be9c4afa345483496450747dcba09b",
+    "status": "completed",
+    "added": 1719360804,
+    "lastUpdated": 1782884837,
+    "effectiveFee": 30160,
+    "effectiveVsize": 520,
+    "feeDelta": 25000,
+    "blockHash": "000000000000000000015237fe67e1b83d26918b7d1658bc768200559a564849",
+    "blockHeight": 849499,
+    "bidBoost": 0,
+    "boostVersion": "v2",
+    "pools": [
+      102,
+      112
+    ],
+    "minedByPoolUniqueId": null,
+    "canceled": 0
+  },
+  {
+    "txid": "af0c172a69c93e9b08e5d4256a685ed789a740805fe4d25ac5e8d117631be7ab",
+    "status": "completed",
+    "added": 1719289819,
+    "lastUpdated": 1782884837,
+    "effectiveFee": 7475,
+    "effectiveVsize": 1008,
+    "feeDelta": 7500,
+    "blockHash": "000000000000000000004169a7af12e1f33ea59d452da5e057730471cbfc9d23",
+    "blockHeight": 849400,
+    "bidBoost": 0,
+    "boostVersion": "v2",
+    "pools": [
+      102,
+      112
+    ],
+    "minedByPoolUniqueId": null,
+    "canceled": 0
+  },
+  {
+    "txid": "d8e8589f36ceec3170346ff6ed7eefe23b3f42789811c8c635d0762bc457da3f",
+    "status": "completed",
+    "added": 1719240762,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 767,
+    "effectiveVsize": 110,
+    "feeDelta": 2625,
+    "blockHash": "00000000000000000001edb690718474487d25c4701ede1e349fd664f4112d4f",
+    "blockHeight": 849322,
+    "bidBoost": 17,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102,
+      112
+    ],
+    "minedByPoolUniqueId": 111,
+    "canceled": 0
+  },
+  {
+    "txid": "7e29db5e3f0c73ea06c4ae00dcbe771b96046869dcff5b5922f1d6ec320a0f9e",
+    "status": "completed",
+    "added": 1719191407,
+    "lastUpdated": 1782884837,
+    "effectiveFee": 7430,
+    "effectiveVsize": 743,
+    "feeDelta": 7500,
+    "blockHash": "000000000000000000025343196912004e7c531fa999d0a6eddbbb4725e8a9b8",
+    "blockHeight": 849228,
+    "bidBoost": 0,
+    "boostVersion": "v2",
+    "pools": [
+      102,
+      112
+    ],
+    "minedByPoolUniqueId": null,
+    "canceled": 0
+  },
+  {
+    "txid": "bd5195666ddd35e5c51ebad001622fa4fb0edb4fdcbdeb7b46f360a4585a098c",
+    "status": "completed",
+    "added": 1719162462,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 1320,
+    "effectiveVsize": 165,
+    "feeDelta": 3750,
+    "blockHash": "00000000000000000001ffa506a016ebc3a49ba42d30475526473e4ec4f72bf2",
+    "blockHeight": 849184,
+    "bidBoost": 1792,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102,
+      112
+    ],
+    "minedByPoolUniqueId": 111,
+    "canceled": 0
+  },
+  {
+    "txid": "26f3b9c929aeb32c6bb1dd0c17b6791738bcd59dce47672c3de46c5c2d5d82f9",
+    "status": "completed",
+    "added": 1719146346,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 3005,
+    "effectiveVsize": 332,
+    "feeDelta": 5250,
+    "blockHash": "000000000000000000026449813fd9d328fd3abbd22bca971e9a313f23b0924d",
+    "blockHeight": 849163,
+    "bidBoost": 2348,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102,
+      112
+    ],
+    "minedByPoolUniqueId": 111,
+    "canceled": 0
+  },
+  {
+    "txid": "c65899fd67d47b7113059f6c6ddf2204924566d161e864440f44b8eee72f29e0",
+    "status": "completed",
+    "added": 1719081548,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 4976,
+    "effectiveVsize": 417,
+    "feeDelta": 9000,
+    "blockHash": "000000000000000000018e379c0c757133848ba24b22b5b752c6a5df3af60e37",
+    "blockHeight": 849077,
+    "bidBoost": 1405,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102,
+      112
+    ],
+    "minedByPoolUniqueId": 102,
+    "canceled": 0
+  },
+  {
+    "txid": "218dc45eee4ddae130e9fe2fa027f9700a2f0c1b46d856ad69a81b7069c7f155",
+    "status": "completed",
+    "added": 1719080345,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 8035,
+    "effectiveVsize": 752,
+    "feeDelta": 13500,
+    "blockHash": "000000000000000000018e379c0c757133848ba24b22b5b752c6a5df3af60e37",
+    "blockHeight": 849077,
+    "bidBoost": 3471,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102,
+      112
+    ],
+    "minedByPoolUniqueId": 102,
+    "canceled": 0
+  },
+  {
+    "txid": "cb1a826334dec33d8b15c42738aa05743d97fd871ed0d58960cdf970cb5187f6",
+    "status": "completed",
+    "added": 1719010387,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 2010,
+    "effectiveVsize": 401,
+    "feeDelta": 18750,
+    "blockHash": "000000000000000000008e1012aaa6c69e0548a6b98d829d9b82761802561c5d",
+    "blockHeight": 848968,
+    "bidBoost": 1240,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102,
+      112
+    ],
+    "minedByPoolUniqueId": 111,
+    "canceled": 0
+  },
+  {
+    "txid": "16dcebcb0eae67d136fe990c96dde8e7fe46068d67b072c68a8910e89ebf6bad",
+    "status": "completed",
+    "added": 1718997421,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 4089,
+    "effectiveVsize": 141,
+    "feeDelta": 6750,
+    "blockHash": "0000000000000000000046919ded824ba2d906f916d99608da8394012fb2b809",
+    "blockHeight": 848934,
+    "bidBoost": 1551,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102,
+      112
+    ],
+    "minedByPoolUniqueId": 111,
+    "canceled": 0
+  },
+  {
+    "txid": "707ff86197fdd7bd8611b6d7c65658b369098b8161443048db587f566b800bbd",
+    "status": "completed",
+    "added": 1718990916,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 5763,
+    "effectiveVsize": 220,
+    "feeDelta": 15000,
+    "blockHash": "00000000000000000000e54922a69732766456ecae584c2adba175c0066d8d6e",
+    "blockHeight": 848927,
+    "bidBoost": 2598,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102,
+      112
+    ],
+    "minedByPoolUniqueId": 111,
+    "canceled": 0
+  },
+  {
+    "txid": "db8c13ec9adf0ff68a0250044d0d78eec62ffcfcf5f880191a32d56dde809aad",
+    "status": "completed",
+    "added": 1718988706,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 2994,
+    "effectiveVsize": 164,
+    "feeDelta": 9000,
+    "blockHash": "000000000000000000005514e4b8be51447cf86271ef071faef54ce942e0fb03",
+    "blockHeight": 848923,
+    "bidBoost": 2888,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102,
+      112
+    ],
+    "minedByPoolUniqueId": 111,
+    "canceled": 0
+  },
+  {
+    "txid": "e897b5a2c4c9222d14d925c71395ee48d48e82ce76b221d0ec2a8ff8fd4b1d4e",
+    "status": "completed",
+    "added": 1718980387,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 1314,
+    "effectiveVsize": 110,
+    "feeDelta": 7500,
+    "blockHash": "00000000000000000001aa2f50d1c579e6a30b49c6ba5a1e5923cc8ab86e75a7",
+    "blockHeight": 848914,
+    "bidBoost": 2121,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102,
+      112
+    ],
+    "minedByPoolUniqueId": 111,
+    "canceled": 0
+  },
+  {
+    "txid": "fd0feda15e3ecfb19fc81a27c5a89e218ab7adb1d28e32a2621ca6d03d001d9f",
+    "status": "completed",
+    "added": 1718941206,
+    "lastUpdated": 1782884837,
+    "effectiveFee": 2016,
+    "effectiveVsize": 345,
+    "feeDelta": 4000,
+    "blockHash": "00000000000000000000f983aefb0f2298ed22006bd8166c6128a7f838e61977",
+    "blockHeight": 848849,
+    "bidBoost": 784,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102,
+      112
+    ],
+    "minedByPoolUniqueId": 111,
+    "canceled": 0
+  },
+  {
+    "txid": "7ed56d60d41954fa8d18df7d5501317ba8803be0414d880ba418f1aac388d412",
+    "status": "completed",
+    "added": 1718883654,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 5236,
+    "effectiveVsize": 779,
+    "feeDelta": 15000,
+    "blockHash": "000000000000000000002eba46ba672d61590e07925675ce4046bd49177838f4",
+    "blockHeight": 848752,
+    "bidBoost": 4891,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102,
+      112
+    ],
+    "minedByPoolUniqueId": 111,
+    "canceled": 0
+  },
+  {
+    "txid": "32706452ca48a287878e3534954ce9055fd763338c272c1137d1953c295bfc6f",
+    "status": "completed",
+    "added": 1718821904,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 3358,
+    "effectiveVsize": 141,
+    "feeDelta": 5250,
+    "blockHash": "00000000000000000001aa055807dc52f046a638c3429824173a930a12732755",
+    "blockHeight": 848659,
+    "bidBoost": 746,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102,
+      112
+    ],
+    "minedByPoolUniqueId": 111,
+    "canceled": 0
+  },
+  {
+    "txid": "c69fe24abd5fc867b65de0b357d6a65a8aec65856534d81fffb9763b25765183",
+    "status": "completed",
+    "added": 1718767087,
+    "lastUpdated": 1782884837,
+    "effectiveFee": 112,
+    "effectiveVsize": 110,
+    "feeDelta": 4000,
+    "blockHash": "000000000000000000001dec2a8f84ad61e85e0edac2f0f8a8a7ea01287c076e",
+    "blockHeight": 848571,
+    "bidBoost": 1317,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102
+    ],
+    "minedByPoolUniqueId": 111,
+    "canceled": 0
+  },
+  {
+    "txid": "304133d1c6be68399736fd0fd316fe0428765e13abd2292b5e8678dec24cae0a",
+    "status": "completed",
+    "added": 1718766418,
+    "lastUpdated": 1782884837,
+    "effectiveFee": 112,
+    "effectiveVsize": 110,
+    "feeDelta": 2000,
+    "blockHash": "000000000000000000016953a3157862f223e5e90f240e5efaf82a7a447e11ab",
+    "blockHeight": 848569,
+    "bidBoost": 988,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102
+    ],
+    "minedByPoolUniqueId": 102,
+    "canceled": 0
+  },
+  {
+    "txid": "8ae237a14fc320b8f7e89a80b7a3b487da4217b0b71e0a1c0523fb2f114f3375",
+    "status": "completed",
+    "added": 1718761055,
+    "lastUpdated": 1782884837,
+    "effectiveFee": 2827,
+    "effectiveVsize": 223,
+    "feeDelta": 3000,
+    "blockHash": "00000000000000000002b869547dfdc1a0e3053c15f1b0f237c113ab75228f63",
+    "blockHeight": 848554,
+    "bidBoost": 0,
+    "boostVersion": "v2",
+    "pools": [
+      102,
+      112
+    ],
+    "minedByPoolUniqueId": null,
+    "canceled": 0
+  },
+  {
+    "txid": "2423f20fe13761aa7547b971ac8395b140eea929038eb2eb6453df5256375251",
+    "status": "completed",
+    "added": 1718724428,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 6740,
+    "effectiveVsize": 336,
+    "feeDelta": 10500,
+    "blockHash": "000000000000000000014baa9447f513c86b9b6272f2edf16cfb28ff5bbef933",
+    "blockHeight": 848498,
+    "bidBoost": 2064,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102
+    ],
+    "minedByPoolUniqueId": 102,
+    "canceled": 0
+  },
+  {
+    "txid": "1a7b7ff28797dbafb6445c1115d53900981a3a477b67ef23e5b5ec12887c1484",
+    "status": "completed",
+    "added": 1718697675,
+    "lastUpdated": 1782884837,
+    "effectiveFee": 3588,
+    "effectiveVsize": 276,
+    "feeDelta": 40000,
+    "blockHash": "000000000000000000007e8f400a8134f3ed5b5c929b68c7002c0cfab5702fa6",
+    "blockHeight": 848459,
+    "bidBoost": 0,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102
+    ],
+    "minedByPoolUniqueId": null,
+    "canceled": 0
+  },
+  {
+    "txid": "1dd6b5c99ff4f9c0f98248e909a09bec182cda3070f60adb85bbc7311f12c9f3",
+    "status": "completed",
+    "added": 1718496719,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 1752,
+    "effectiveVsize": 110,
+    "feeDelta": 3000,
+    "blockHash": "0000000000000000000170f71cc5d09ad96a24557089ff9f3a9a699fd7fc9c15",
+    "blockHeight": 848168,
+    "bidBoost": 0,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102
+    ],
+    "minedByPoolUniqueId": null,
+    "canceled": 0
+  },
+  {
+    "txid": "534a22d1d3136364beb2b84ba69b8d4b4e6d987db20fdee82c5772824cbcf9a8",
+    "status": "completed",
+    "added": 1718463828,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 10056,
+    "effectiveVsize": 318,
+    "feeDelta": 52500,
+    "blockHash": "00000000000000000002b49b7113d3ba36ec5721d1b15daa0a7881e8c2014d13",
+    "blockHeight": 848043,
+    "bidBoost": 0,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102
+    ],
+    "minedByPoolUniqueId": null,
+    "canceled": 0
+  },
+  {
+    "txid": "7a285e4e0576ca6e63adb6107f2a6940066246c853d80e17f7319216232f309c",
+    "status": "completed",
+    "added": 1718447591,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 4620,
+    "effectiveVsize": 165,
+    "feeDelta": 7500,
+    "blockHash": "000000000000000000013df6c4ecd3a7d66db92a1b99a6e4c0ad5d0b2856b56e",
+    "blockHeight": 848049,
+    "bidBoost": 0,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102
+    ],
+    "minedByPoolUniqueId": 111,
+    "canceled": 0
+  },
+  {
+    "txid": "9ce2b64f29935ea2757b1621ff5f5bd95e1dd7c3c458f348725463c2a6c6483f",
+    "status": "completed",
+    "added": 1718415229,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 6325,
+    "effectiveVsize": 241,
+    "feeDelta": 10500,
+    "blockHash": "00000000000000000001865e673bd492a190be06b95e046b58ec40753c4d08f4",
+    "blockHeight": 847990,
+    "bidBoost": 611,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102
+    ],
+    "minedByPoolUniqueId": 102,
+    "canceled": 0
+  },
+  {
+    "txid": "3e37ab97636ec92828063f9dce03879bde695dcacf7f0607ec8ef7259f8a4b9d",
+    "status": "completed",
+    "added": 1718396970,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 1437,
+    "effectiveVsize": 111,
+    "feeDelta": 7500,
+    "blockHash": "00000000000000000001865e673bd492a190be06b95e046b58ec40753c4d08f4",
+    "blockHeight": 847990,
+    "bidBoost": 1758,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102
+    ],
+    "minedByPoolUniqueId": 102,
+    "canceled": 0
+  },
+  {
+    "txid": "a74c36476089c922c0c4f4b9b9cfa62f5d78ba8fd5deda13a7016d91b25b6640",
+    "status": "completed",
+    "added": 1718391274,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 5225,
+    "effectiveVsize": 208,
+    "feeDelta": 9000,
+    "blockHash": "00000000000000000001865e673bd492a190be06b95e046b58ec40753c4d08f4",
+    "blockHeight": 847990,
+    "bidBoost": 762,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102
+    ],
+    "minedByPoolUniqueId": 102,
+    "canceled": 0
+  },
+  {
+    "txid": "ecb3a4bca0a031be3d568f24d5d28e2405ec5aac66935b003ea5171a25e86936",
+    "status": "completed",
+    "added": 1718390572,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 1320,
+    "effectiveVsize": 165,
+    "feeDelta": 13500,
+    "blockHash": "00000000000000000001865e673bd492a190be06b95e046b58ec40753c4d08f4",
+    "blockHeight": 847990,
+    "bidBoost": 3429,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102
+    ],
+    "minedByPoolUniqueId": 102,
+    "canceled": 0
+  },
+  {
+    "txid": "df9bb66a08f0cb6943a0e953509d6ad60591472071d136a75252a2e47720ac43",
+    "status": "completed",
+    "added": 1718385811,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 5091,
+    "effectiveVsize": 141,
+    "feeDelta": 9000,
+    "blockHash": "0000000000000000000215ae52452dde5362bb794551d20ca1775621078c4c36",
+    "blockHeight": 847928,
+    "bidBoost": 0,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102
+    ],
+    "minedByPoolUniqueId": null,
+    "canceled": 0
+  },
+  {
+    "txid": "ddda98ed8a999f432c11167d5ec93836561ba5bf0a78fe5dc0fa8d0ba8349a52",
+    "status": "completed",
+    "added": 1718381432,
+    "lastUpdated": 1782884837,
+    "effectiveFee": 7911,
+    "effectiveVsize": 501,
+    "feeDelta": 25000,
+    "blockHash": "00000000000000000001865e673bd492a190be06b95e046b58ec40753c4d08f4",
+    "blockHeight": 847990,
+    "bidBoost": 6508,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102
+    ],
+    "minedByPoolUniqueId": 102,
+    "canceled": 0
+  },
+  {
+    "txid": "d164f05c9658fd2e19cb6596eb55fba48b9a549709d3a31973d2be90c3433863",
+    "status": "completed",
+    "added": 1718319102,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 1433,
+    "effectiveVsize": 144,
+    "feeDelta": 12000,
+    "blockHash": "00000000000000000002dc684315cb287ad3f1f52e590444bcc628973d43ce45",
+    "blockHeight": 847847,
+    "bidBoost": 9317,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102
+    ],
+    "minedByPoolUniqueId": 102,
+    "canceled": 0
+  },
+  {
+    "txid": "70da76c8cf743066159893fdd3090e551938533d7e483be19e8438173136bcc1",
+    "status": "completed",
+    "added": 1718311792,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 2738,
+    "effectiveVsize": 110,
+    "feeDelta": 4500,
+    "blockHash": "00000000000000000001784130d7e118074b602a0a08cba38ebaa6d89c21be19",
+    "blockHeight": 847912,
+    "bidBoost": 892,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102
+    ],
+    "minedByPoolUniqueId": 102,
+    "canceled": 0
+  },
+  {
+    "txid": "6b0f2832e0cdf20c8b7de39157e19f637eeeff30dd64d41337901cc89c46b524",
+    "status": "completed",
+    "added": 1718306613,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 3494,
+    "effectiveVsize": 141,
+    "feeDelta": 5250,
+    "blockHash": "000000000000000000001e615375ff5e92fb524a43b47185df3ccd97faf6fe4d",
+    "blockHeight": 847806,
+    "bidBoost": 369,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102
+    ],
+    "minedByPoolUniqueId": 111,
+    "canceled": 0
+  },
+  {
+    "txid": "8b4f2c5b7960b8f4977e14bc3ad2c90ac4e4ea28f089a1ee5849d647f11bae17",
+    "status": "completed",
+    "added": 1718302829,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 3807,
+    "effectiveVsize": 141,
+    "feeDelta": 6000,
+    "blockHash": "0000000000000000000317bf9b50e54095672b6ad615f04e5b14b0c994384a39",
+    "blockHeight": 847795,
+    "bidBoost": 70,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102
+    ],
+    "minedByPoolUniqueId": 111,
+    "canceled": 0
+  },
+  {
+    "txid": "5a7c28cb6a4a729ad582d4f3f79dc9cd422ee026846557abdd3f488f71f2f79f",
+    "status": "completed",
+    "added": 1718281453,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 3135,
+    "effectiveVsize": 165,
+    "feeDelta": 5250,
+    "blockHash": "00000000000000000001e634a8aa3a87f53bc731521ab449cf1df23bce4ff0ad",
+    "blockHeight": 847762,
+    "bidBoost": 1650,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102
+    ],
+    "minedByPoolUniqueId": 111,
+    "canceled": 0
+  },
+  {
+    "txid": "27613a42f4eb300351d2f36b7c9a514313a62b559a625207ec18ceeece6bcaf5",
+    "status": "completed",
+    "added": 1718219806,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 4914,
+    "effectiveVsize": 188,
+    "feeDelta": 7500,
+    "blockHash": "000000000000000000030aa808e2900d9bdb839a555b423c1f1f1318d033f300",
+    "blockHeight": 847659,
+    "bidBoost": 6554,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102
+    ],
+    "minedByPoolUniqueId": 111,
+    "canceled": 0
+  },
+  {
+    "txid": "99abd3753cafbb0986092b5efce67ab23ed7c9eddc8d2f74f8f2e19767dae7d2",
+    "status": "completed",
+    "added": 1718208813,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 710,
+    "effectiveVsize": 141,
+    "feeDelta": 10500,
+    "blockHash": "00000000000000000000dd9f06777fe4618577b31794091142c54b89f5a246b2",
+    "blockHeight": 847643,
+    "bidBoost": 4930,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102
+    ],
+    "minedByPoolUniqueId": 111,
+    "canceled": 0
+  },
+  {
+    "txid": "e036f3e631c63fb7f47d0cb4e10676f54cf8d1fb2786d1146045526319a96e4c",
+    "status": "completed",
+    "added": 1718200736,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 2544,
+    "effectiveVsize": 113,
+    "feeDelta": 4500,
+    "blockHash": "000000000000000000020b57a3475c9e7d20f1b7b22f858e28fa22bb9dcc6edb",
+    "blockHeight": 847628,
+    "bidBoost": 1353,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102
+    ],
+    "minedByPoolUniqueId": 111,
+    "canceled": 0
+  },
+  {
+    "txid": "ddc039628461914b90cf48dd7ec7e097a8d9e7e3b6e5ff6eb112856c1be63b8a",
+    "status": "completed",
+    "added": 1718199547,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 6817,
+    "effectiveVsize": 223,
+    "feeDelta": 10500,
+    "blockHash": "00000000000000000001e8d6861ab6368af400390e8bd64d2bce783d55316931",
+    "blockHeight": 847626,
+    "bidBoost": 0,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102
+    ],
+    "minedByPoolUniqueId": null,
+    "canceled": 0
+  },
+  {
+    "txid": "4f9388b64bd94c738b165f689f62d0330b285ff01c1f7fe00cab65a230c88311",
+    "status": "completed",
+    "added": 1718160706,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 3942,
+    "effectiveVsize": 178,
+    "feeDelta": 6000,
+    "blockHash": "0000000000000000000141547b5934b859544b9628f0d321173f6f34f3add109",
+    "blockHeight": 847557,
+    "bidBoost": 805,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102
+    ],
+    "minedByPoolUniqueId": 111,
+    "canceled": 0
+  },
+  {
+    "txid": "9a6ca5b4b8ba14d0055cce405ba407a93ded231df1f75509be591a60463120a2",
+    "status": "completed",
+    "added": 1718139641,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 5049,
+    "effectiveVsize": 154,
+    "feeDelta": 9000,
+    "blockHash": "000000000000000000018e2b07cd02d31010f6e9fde34f237ae2879887a1d590",
+    "blockHeight": 847522,
+    "bidBoost": 341,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102
+    ],
+    "minedByPoolUniqueId": 111,
+    "canceled": 0
+  },
+  {
+    "txid": "931bdeafc2fe9344be6248def8f6a7916c61edcc5768a29bb17f1de9452f68a3",
+    "status": "completed",
+    "added": 1718138779,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 2805,
+    "effectiveVsize": 165,
+    "feeDelta": 12000,
+    "blockHash": "000000000000000000018e2b07cd02d31010f6e9fde34f237ae2879887a1d590",
+    "blockHeight": 847522,
+    "bidBoost": 2970,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102
+    ],
+    "minedByPoolUniqueId": 111,
+    "canceled": 0
+  },
+  {
+    "txid": "54aa98298463ec186136a98213ccc659468b571574d8b4b475e37a67c37cea32",
+    "status": "completed",
+    "added": 1718105295,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 308,
+    "effectiveVsize": 110,
+    "feeDelta": 7500,
+    "blockHash": "0000000000000000000252a2256db0b49698e0d5d02d053228c6841635b7b6ac",
+    "blockHeight": 847481,
+    "bidBoost": 2355,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102
+    ],
+    "minedByPoolUniqueId": 111,
+    "canceled": 0
+  },
+  {
+    "txid": "5a123ea4f90ffe8827f1c5aa9ecf913ffc40f71d74cffe7d30c8b2a5d0d7d856",
+    "status": "completed",
+    "added": 1718086504,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 4536,
+    "effectiveVsize": 189,
+    "feeDelta": 7500,
+    "blockHash": "0000000000000000000312d5a3e8e3dff20d71b60703864ae5f9284bdcf562d2",
+    "blockHeight": 847449,
+    "bidBoost": 567,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102
+    ],
+    "minedByPoolUniqueId": 111,
+    "canceled": 0
+  },
+  {
+    "txid": "de61acad82371feb0192b702b13aeb6883d924968a51f9c48d5081c2e73273da",
+    "status": "completed",
+    "added": 1718083888,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 3610,
+    "effectiveVsize": 141,
+    "feeDelta": 6000,
+    "blockHash": "000000000000000000017eadcb14136e59d0c9f54bb8a6dfed8bf218794b6b34",
+    "blockHeight": 847444,
+    "bidBoost": 622,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102
+    ],
+    "minedByPoolUniqueId": 111,
+    "canceled": 0
+  },
+  {
+    "txid": "2009250ae0d39213fe237c40398f1b59aa044347eb4e2ec17281a516ac1d51c2",
+    "status": "completed",
+    "added": 1718049660,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 8726,
+    "effectiveVsize": 244,
+    "feeDelta": 13500,
+    "blockHash": "000000000000000000027f686efba2c9ec9e464d183e8a7a1ec0327214d5d671",
+    "blockHeight": 847393,
+    "bidBoost": 0,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102
+    ],
+    "minedByPoolUniqueId": 111,
+    "canceled": 0
+  },
+  {
+    "txid": "406731d1121b52e6df14afe40fa575edca0717982f8fb7d2342f8fc37f341d16",
+    "status": "completed",
+    "added": 1718022816,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 3795,
+    "effectiveVsize": 165,
+    "feeDelta": 13500,
+    "blockHash": "00000000000000000001eb3a57a9053faad231b57bc19197b74a33d13df0c896",
+    "blockHeight": 847349,
+    "bidBoost": 4464,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102
+    ],
+    "minedByPoolUniqueId": 111,
+    "canceled": 0
+  },
+  {
+    "txid": "ec5e2771c041058d77b36bc027ac5abfd7aaa6283218c992024c0f725ca0d60a",
+    "status": "completed",
+    "added": 1718021211,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 4500,
+    "effectiveVsize": 449,
+    "feeDelta": 30000,
+    "blockHash": "00000000000000000001eb3a57a9053faad231b57bc19197b74a33d13df0c896",
+    "blockHeight": 847349,
+    "bidBoost": 17975,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102
+    ],
+    "minedByPoolUniqueId": 111,
+    "canceled": 0
+  },
+  {
+    "txid": "5d7a6db37a652c4ef9a861ec73c1b880adf96f5c8e7925ee451d5ce2fd66f919",
+    "status": "completed",
+    "added": 1718021056,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 2652,
+    "effectiveVsize": 138,
+    "feeDelta": 6750,
+    "blockHash": "00000000000000000001eb3a57a9053faad231b57bc19197b74a33d13df0c896",
+    "blockHeight": 847349,
+    "bidBoost": 4256,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102
+    ],
+    "minedByPoolUniqueId": 111,
+    "canceled": 0
+  },
+  {
+    "txid": "9fcf40aa462e8f1813a6e820f9356e9fe9bba0dee849e1813b4770e0af98b0de",
+    "status": "failed",
+    "added": 1717989444,
+    "lastUpdated": 1755586821,
+    "effectiveFee": 5016,
+    "effectiveVsize": 208,
+    "feeDelta": 9000,
+    "blockHash": null,
+    "blockHeight": null,
+    "bidBoost": 0,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102
+    ],
+    "minedByPoolUniqueId": null,
+    "canceled": 0
+  },
+  {
+    "txid": "0af472d3351b7fe31949eec0267dc6153ae11873e1eeef93e813353e7c6156ff",
+    "status": "completed",
+    "added": 1717988155,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 4281,
+    "effectiveVsize": 425,
+    "feeDelta": 22500,
+    "blockHash": "00000000000000000002a3549652a3b564ee8f42477229aa72194127f06a400a",
+    "blockHeight": 847293,
+    "bidBoost": 6942,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102
+    ],
+    "minedByPoolUniqueId": 111,
+    "canceled": 0
+  },
+  {
+    "txid": "e98fb7d1c80c3a51254217a1ec5492870abacda4d6bf7f44934a549768b68e2b",
+    "status": "completed",
+    "added": 1717960976,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 3135,
+    "effectiveVsize": 165,
+    "feeDelta": 5250,
+    "blockHash": "000000000000000000011cb07d01007ae36765d40b36e6ab7febc49f104f6b22",
+    "blockHeight": 847239,
+    "bidBoost": 1158,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102
+    ],
+    "minedByPoolUniqueId": 111,
+    "canceled": 0
+  },
+  {
+    "txid": "a2e3cca9ffd7bf37e4cbd3d6010e68885260c92bb54b9e1eda0dab69ee6334bf",
+    "status": "completed",
+    "added": 1717952458,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 1320,
+    "effectiveVsize": 165,
+    "feeDelta": 9000,
+    "blockHash": "00000000000000000001260e398c7811b8561846ee32fc03ce5d89f4fa3bd20c",
+    "blockHeight": 847226,
+    "bidBoost": 3643,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102
+    ],
+    "minedByPoolUniqueId": 111,
+    "canceled": 0
+  },
+  {
+    "txid": "0d769e89bfbd24d5da7d6e5586fd5efc823216b12f19f336373f58a00b40d930",
+    "status": "completed",
+    "added": 1717885891,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 2013,
+    "effectiveVsize": 189,
+    "feeDelta": 18750,
+    "blockHash": "000000000000000000011e400dbe673f582c69fec9526cd290abcd1e226a8b09",
+    "blockHeight": 847118,
+    "bidBoost": 4602,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102
+    ],
+    "minedByPoolUniqueId": 111,
+    "canceled": 0
+  },
+  {
+    "txid": "9a0727c84f1950e003e180d97438ac9ee7571f0bf2478f48c2d7d1b88f721c7d",
+    "status": "completed",
+    "added": 1717837380,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 103903,
+    "effectiveVsize": 3399,
+    "feeDelta": 225000,
+    "blockHash": "00000000000000000002f7033b3c460c70197b6e218e2956af815f533b88ef05",
+    "blockHeight": 847015,
+    "bidBoost": 64563,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102
+    ],
+    "minedByPoolUniqueId": 111,
+    "canceled": 0
+  },
+  {
+    "txid": "1f7a792162b8dd45ce950f8fea4264c72fa6ed1a826ce3bbb9c7350124f9ff07",
+    "status": "completed",
+    "added": 1717836183,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 5115,
+    "effectiveVsize": 165,
+    "feeDelta": 13500,
+    "blockHash": "00000000000000000002fc425f50dddfa8a67ec0b1cb8fa8fe3fbf13898aab9f",
+    "blockHeight": 847013,
+    "bidBoost": 3544,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102
+    ],
+    "minedByPoolUniqueId": 111,
+    "canceled": 0
+  },
+  {
+    "txid": "b20734719a5125049a73a8593bf4d1a0509a74ae2a69b7cb55dcc1ab9f468af6",
+    "status": "completed",
+    "added": 1717836163,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 3762,
+    "effectiveVsize": 141,
+    "feeDelta": 13500,
+    "blockHash": "00000000000000000002fc425f50dddfa8a67ec0b1cb8fa8fe3fbf13898aab9f",
+    "blockHeight": 847013,
+    "bidBoost": 3638,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102
+    ],
+    "minedByPoolUniqueId": 111,
+    "canceled": 0
+  },
+  {
+    "txid": "a62c4d1bbe70c1cdeb2abbc43c416b53d6bdf2f314b12b9c9314040a969769ff",
+    "status": "completed",
+    "added": 1717833252,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 5949,
+    "effectiveVsize": 111,
+    "feeDelta": 9000,
+    "blockHash": "00000000000000000002d2807d7471d5a53acc7a825fc9e43fdef16844457c23",
+    "blockHeight": 847009,
+    "bidBoost": 449,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102
+    ],
+    "minedByPoolUniqueId": 111,
+    "canceled": 0
+  },
+  {
+    "txid": "ba86fe1dd0bfc672fbb72f23dbca69028ece1c9cef1c833764f50ac0b7643c57",
+    "status": "completed",
+    "added": 1717828063,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 5733,
+    "effectiveVsize": 223,
+    "feeDelta": 37500,
+    "blockHash": "00000000000000000001e08f953c6ee85dc5d79ed7e64229ce2ea3f841e20f0c",
+    "blockHeight": 847000,
+    "bidBoost": 10222,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102
+    ],
+    "minedByPoolUniqueId": 111,
+    "canceled": 0
+  },
+  {
+    "txid": "4b999b67434ea653e670013f0616caf38460a074e70f77e8309746ff9aa3369d",
+    "status": "completed",
+    "added": 1717819784,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 20584,
+    "effectiveVsize": 246,
+    "feeDelta": 37500,
+    "blockHash": "0000000000000000000357eba46b34208e2fd1b9ebbf8249571536aed2226a88",
+    "blockHeight": 846990,
+    "bidBoost": 1908,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102
+    ],
+    "minedByPoolUniqueId": 111,
+    "canceled": 0
+  },
+  {
+    "txid": "82a493b9d10fcb73f10602345b429c20989ead35d15b6ba8ddc67cfdd795a94d",
+    "status": "completed",
+    "added": 1717813220,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 31872,
+    "effectiveVsize": 381,
+    "feeDelta": 52500,
+    "blockHash": "00000000000000000000e35e9aeef07b7a8717fc04a0cc197f0660baa93ba024",
+    "blockHeight": 846979,
+    "bidBoost": 10969,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102
+    ],
+    "minedByPoolUniqueId": 111,
+    "canceled": 0
+  },
+  {
+    "txid": "e3d2520f58c9adbe09d9a8d4867c317c5b93a913d9a84b603259d4221515b816",
+    "status": "completed",
+    "added": 1717807227,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 4088,
+    "effectiveVsize": 110,
+    "feeDelta": 60000,
+    "blockHash": "000000000000000000017552107a12f2aee495e2276bc954fb8965bcedf6fb8d",
+    "blockHeight": 846963,
+    "bidBoost": 14872,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102
+    ],
+    "minedByPoolUniqueId": 111,
+    "canceled": 0
+  },
+  {
+    "txid": "c4cdef8d920a114a4442e1ff96dad9a2e599f9b85333bee2fba637d1966ea3c5",
+    "status": "completed",
+    "added": 1717783387,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 8698,
+    "effectiveVsize": 110,
+    "feeDelta": 135000,
+    "blockHash": "000000000000000000003628996457317d5c1479f3604b7428945a086dcf62b9",
+    "blockHeight": 846923,
+    "bidBoost": 41701,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102
+    ],
+    "minedByPoolUniqueId": 102,
+    "canceled": 0
+  },
+  {
+    "txid": "6ed5c79a2e444a3b5841bc8cbaea8e92a073e7408dc8ed33f48fa72e50562e52",
+    "status": "completed",
+    "added": 1717767749,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 23613,
+    "effectiveVsize": 381,
+    "feeDelta": 300000,
+    "blockHash": "00000000000000000000c2f477cf44e48906133348605f0498009e7e0e4c8da8",
+    "blockHeight": 846900,
+    "bidBoost": 128803,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102
+    ],
+    "minedByPoolUniqueId": 111,
+    "canceled": 0
+  },
+  {
+    "txid": "5fcce60bd55270d55a26f6833d036b8cac8bdc03eaa77915281479ba40548d27",
+    "status": "completed",
+    "added": 1717730119,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 3300,
+    "effectiveVsize": 165,
+    "feeDelta": 12000,
+    "blockHash": "0000000000000000000270c549d9ff7b25e6329b8b9104d805d924dc07607bfe",
+    "blockHeight": 846842,
+    "bidBoost": 3325,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102
+    ],
+    "minedByPoolUniqueId": 111,
+    "canceled": 0
+  },
+  {
+    "txid": "c197417ee093766527cfdba68137ea411a88fc43045a32bb18e0cd43920d24b2",
+    "status": "completed",
+    "added": 1717711591,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 1900,
+    "effectiveVsize": 179,
+    "feeDelta": 11250,
+    "blockHash": "00000000000000000002cd29ff95ea2d272d4b0b954b254d4f61c8d7a5fc936c",
+    "blockHeight": 846799,
+    "bidBoost": 3560,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102
+    ],
+    "minedByPoolUniqueId": 111,
+    "canceled": 0
+  },
+  {
+    "txid": "604ed6a0608838c181ef24ede8f1e357b474717437b428024c997b34fb49cfc6",
+    "status": "completed",
+    "added": 1717699294,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 4230,
+    "effectiveVsize": 141,
+    "feeDelta": 6750,
+    "blockHash": "00000000000000000001128704032b1f8b36387978b7603a641f3b817f92957d",
+    "blockHeight": 846778,
+    "bidBoost": 3820,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102
+    ],
+    "minedByPoolUniqueId": 111,
+    "canceled": 0
+  },
+  {
+    "txid": "119afc9ee35dcbbec5cddd3927a06fa2a7231a71d4c271c51920ac378d7ed31e",
+    "status": "completed",
+    "added": 1717694792,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 142,
+    "effectiveVsize": 141,
+    "feeDelta": 18750,
+    "blockHash": "00000000000000000001a4cdf932ca6315d536590d915872d703e930f30a8f91",
+    "blockHeight": 846769,
+    "bidBoost": 4701,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102
+    ],
+    "minedByPoolUniqueId": 111,
+    "canceled": 0
+  },
+  {
+    "txid": "7817b8b2168faea5f06620c2c4584d3f3bd1e4f1426c5b26c2333c27d41440e9",
+    "status": "completed",
+    "added": 1717692756,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 5358,
+    "effectiveVsize": 141,
+    "feeDelta": 11250,
+    "blockHash": "000000000000000000009653f22ac53026eaa40e479a37bae1025ccd4ba54c60",
+    "blockHeight": 846765,
+    "bidBoost": 2561,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102
+    ],
+    "minedByPoolUniqueId": 111,
+    "canceled": 0
+  },
+  {
+    "txid": "5bdcb09570400f81ea5d4929316fdfcc140c5ab109fce09487772e4b4e47b7e6",
+    "status": "completed",
+    "added": 1717690163,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 24434,
+    "effectiveVsize": 989,
+    "feeDelta": 60000,
+    "blockHash": "000000000000000000009653f22ac53026eaa40e479a37bae1025ccd4ba54c60",
+    "blockHeight": 846765,
+    "bidBoost": 31109,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102
+    ],
+    "minedByPoolUniqueId": 111,
+    "canceled": 0
+  },
+  {
+    "txid": "a8c028651c52633222a82f2c9cb83ad08c3519f3e9a9d3a6802f8f9a304eb15a",
+    "status": "completed",
+    "added": 1717687530,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 5259,
+    "effectiveVsize": 222,
+    "feeDelta": 22500,
+    "blockHash": "000000000000000000001ee2f836adf5c94ca0715d818eede5bb49c22cc687e5",
+    "blockHeight": 846757,
+    "bidBoost": 6794,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102
+    ],
+    "minedByPoolUniqueId": 111,
+    "canceled": 0
+  },
+  {
+    "txid": "4538c277f529ae27d54583d85089a147f4c6b551771fdc1845c0314cb856ce5e",
+    "status": "completed",
+    "added": 1717659112,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 5115,
+    "effectiveVsize": 164,
+    "feeDelta": 11250,
+    "blockHash": "00000000000000000000ae210e7aa7e5a2f99e52fabd92b033403653ca0cb76d",
+    "blockHeight": 846715,
+    "bidBoost": 1636,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102
+    ],
+    "minedByPoolUniqueId": 111,
+    "canceled": 0
+  },
+  {
+    "txid": "0f505de8a1d9d8665322f5fb0ccc735b57894cb1ec9b43699baca389a69f6814",
+    "status": "completed",
+    "added": 1717630104,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 2679,
+    "effectiveVsize": 141,
+    "feeDelta": 12000,
+    "blockHash": "000000000000000000003af90bd12a1674f73be495cd82159d21c6531f519a9b",
+    "blockHeight": 846674,
+    "bidBoost": 2400,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102
+    ],
+    "minedByPoolUniqueId": 111,
+    "canceled": 0
+  },
+  {
+    "txid": "df519e35743f7824aa86da69e6ae02b3a66bbdc78db50ed0fd4191120325cf19",
+    "status": "completed",
+    "added": 1717621015,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 1887,
+    "effectiveVsize": 110,
+    "feeDelta": 6750,
+    "blockHash": "00000000000000000000d17f2c0c9dcacf1d1ef2a0808457e81a8eee78628974",
+    "blockHeight": 846666,
+    "bidBoost": 1986,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102
+    ],
+    "minedByPoolUniqueId": 111,
+    "canceled": 0
+  },
+  {
+    "txid": "e57fa88373c44bf373999f249c77d042f4ff31d63264adeb39a83a1846284ee9",
+    "status": "completed",
+    "added": 1717617715,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 9288,
+    "effectiveVsize": 516,
+    "feeDelta": 30000,
+    "blockHash": "000000000000000000002ddf234469e6c9dbffd98b57da5b6245466584bd1753",
+    "blockHeight": 846657,
+    "bidBoost": 10500,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102
+    ],
+    "minedByPoolUniqueId": 111,
+    "canceled": 0
+  },
+  {
+    "txid": "c83f7c2ff3bde758e622bf493acd77243e9d7f414708bc24c91a44f300b4e2e6",
+    "status": "completed",
+    "added": 1717617582,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 2970,
+    "effectiveVsize": 165,
+    "feeDelta": 10500,
+    "blockHash": "000000000000000000002ddf234469e6c9dbffd98b57da5b6245466584bd1753",
+    "blockHeight": 846657,
+    "bidBoost": 3358,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102
+    ],
+    "minedByPoolUniqueId": 111,
+    "canceled": 0
+  },
+  {
+    "txid": "877c2988b463b96b6af631d31de33bc4b60a48f10be68cd1049d4fc658a9e1b3",
+    "status": "completed",
+    "added": 1717599920,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 5038,
+    "effectiveVsize": 293,
+    "feeDelta": 30000,
+    "blockHash": "00000000000000000001db3119fe2e415c63564cd06e89dfb3426be8686cc4ff",
+    "blockHeight": 846634,
+    "bidBoost": 7268,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102
+    ],
+    "minedByPoolUniqueId": 111,
+    "canceled": 0
+  },
+  {
+    "txid": "7f90efcb827f76ad7feb04b2cd2e2ff34a8f7b46dfbfd56f05e26fceddc69969",
+    "status": "completed",
+    "added": 1717577937,
+    "lastUpdated": 1782884837,
+    "effectiveFee": 141,
+    "effectiveVsize": 141,
+    "feeDelta": 18000,
+    "blockHash": "0000000000000000000042131aa5e7ea58a886deae090b83904967a19c141bb7",
+    "blockHeight": 846604,
+    "bidBoost": 3948,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102
+    ],
+    "minedByPoolUniqueId": 111,
+    "canceled": 0
+  },
+  {
+    "txid": "39b89355dcd03d8721ee8a2aed296bbce13ec17397d3ee1fb628e53c437e8f5b",
+    "status": "completed",
+    "added": 1717575743,
+    "lastUpdated": 1782884837,
+    "effectiveFee": 3258,
+    "effectiveVsize": 180,
+    "feeDelta": 8000,
+    "blockHash": "000000000000000000015e98efacee583606b9a1486603a88eb80b166f9881fa",
+    "blockHeight": 846630,
+    "bidBoost": 1845,
+    "boostVersion": "v2",
+    "pools": [
+      102
+    ],
+    "minedByPoolUniqueId": 102,
+    "canceled": 0
+  },
+  {
+    "txid": "4a270c569212e2bafc9b850b8194f2cd8c49d9e4d2d1a42abf04f5534437cd20",
+    "status": "completed",
+    "added": 1717572136,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 2336,
+    "effectiveVsize": 178,
+    "feeDelta": 9000,
+    "blockHash": "0000000000000000000200ed58329dafc4f9a841a744f8afe6ef549580a8899a",
+    "blockHeight": 846597,
+    "bidBoost": 3003,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102
+    ],
+    "minedByPoolUniqueId": 111,
+    "canceled": 0
+  },
+  {
+    "txid": "353a0d688b243f36387de43e17a457124939920728ddb401d9f11522383c199c",
+    "status": "completed",
+    "added": 1717535868,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 2538,
+    "effectiveVsize": 141,
+    "feeDelta": 9000,
+    "blockHash": "000000000000000000002379f4777705221c6c110ac3649a5c913d18c481cb9c",
+    "blockHeight": 846558,
+    "bidBoost": 353,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102
+    ],
+    "minedByPoolUniqueId": 102,
+    "canceled": 0
+  },
+  {
+    "txid": "5c08d187a5718d92460f2baae2e3eb9af840929178dc5ed9fd43bb7be132ae83",
+    "status": "completed",
+    "added": 1717533977,
+    "lastUpdated": 1782884837,
+    "effectiveFee": 1890,
+    "effectiveVsize": 293,
+    "feeDelta": 17500,
+    "blockHash": "00000000000000000002b9bdfe8aa874008057c65d7495f8cb49d10097129a17",
+    "blockHeight": 846540,
+    "bidBoost": 10703,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102
+    ],
+    "minedByPoolUniqueId": 111,
+    "canceled": 0
+  },
+  {
+    "txid": "1dc040cfa0995aa4ac6639c15205c0d17a386e21fa06ca76c4f7861fed41db81",
+    "status": "completed",
+    "added": 1717527776,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 1843,
+    "effectiveVsize": 110,
+    "feeDelta": 3000,
+    "blockHash": "000000000000000000028f88b6a1f8d1c10fd8c292cbcc0dbafa581bc77040e6",
+    "blockHeight": 846539,
+    "bidBoost": 1138,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102
+    ],
+    "minedByPoolUniqueId": 102,
+    "canceled": 0
+  },
+  {
+    "txid": "1e132a403f43510d78c6692aa0e7ccb5b10c22afe33991e2d709fbeda365b92a",
+    "status": "completed",
+    "added": 1717516563,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 6670,
+    "effectiveVsize": 313,
+    "feeDelta": 10500,
+    "blockHash": "00000000000000000000715b675d9343889d5ce83ebf90a5fb7fb7e7e2c6eb9f",
+    "blockHeight": 846512,
+    "bidBoost": 0,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102
+    ],
+    "minedByPoolUniqueId": null,
+    "canceled": 0
+  },
+  {
+    "txid": "f87764a85ec843e92ba48f38d859d2fcedbc38d4c78d8b4927726771c669e875",
+    "status": "completed",
+    "added": 1717509004,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 1320,
+    "effectiveVsize": 165,
+    "feeDelta": 5250,
+    "blockHash": "000000000000000000014cd79802b29c1dcd7fc6debee1e3968cfc216b59bf16",
+    "blockHeight": 846504,
+    "bidBoost": 1650,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102
+    ],
+    "minedByPoolUniqueId": 102,
+    "canceled": 0
+  },
+  {
+    "txid": "32b2637b65e80f21fe49eaa00527ceb836529f4bfcd02d62cd45c00aa321628c",
+    "status": "completed",
+    "added": 1717452530,
+    "lastUpdated": 1755586784,
+    "effectiveFee": 1320,
+    "effectiveVsize": 165,
+    "feeDelta": 6000,
+    "blockHash": "00000000000000000000456a554ad36a748e78fef7b48c0eb895ad81fac0a004",
+    "blockHeight": 846411,
+    "bidBoost": 1337,
+    "boostVersion": "v2",
+    "pools": [
+      111,
+      102
+    ],
+    "minedByPoolUniqueId": 111,
+    "canceled": 0
+  }
+]
